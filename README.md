@@ -1,6 +1,6 @@
 # 🎭 SESC Alertas - Extrator de Eventos
 
-> **Versão:** Pre-Beta 0.7.0  
+> **Versão:** Pre-Beta 0.7.1  
 > **Status:** Em desenvolvimento ativo
 
 Bot automatizado que monitora e extrai informações sobre shows e eventos culturais do SESC SP, processando PDFs da programação oficial e enviando notificações organizadas via Telegram com destaque para eventos da semana atual.
@@ -149,7 +149,22 @@ O bot irá:
 
 ## 📝 Notas de Versão
 
-### Pre-Beta 0.7.0 (Atual) - ✨ Major Update
+### Pre-Beta 0.7.1 (Atual) - 🔧 Filtro de Datas Aprimorado
+- 📅 **Melhor separação de períodos**
+  - Bloco 1: Hoje até próximo sábado (semana atual)
+  - Bloco 2: Após sábado até fim do mês vigente
+  - Eventos passados totalmente excluídos
+  - Eventos do próximo mês não são enviados
+- 🎯 **Mensagens mais curtas e relevantes**
+  - Apenas eventos do mês atual
+  - Cabeçalhos mostram períodos exatos
+  - Contagem de eventos por bloco
+- 📊 **Logs detalhados**
+  - Lista de eventos excluídos
+  - Estatísticas de filtros aplicados
+  - Períodos detalhados de cada bloco
+
+### Pre-Beta 0.7.0 - ✨ Major Update
 - 🗄️ **Banco de dados SQLite integrado**
   - Histórico completo de eventos
   - Deduplicação por fingerprint (hash único)
