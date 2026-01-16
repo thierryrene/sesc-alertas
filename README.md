@@ -1,4 +1,4 @@
-# 🎭 SESC Bot - Extrator de Eventos
+# 🎭 SESC Alertas - Extrator de Eventos
 
 > **Versão:** Pre-Beta 0.1.0  
 > **Status:** Em desenvolvimento ativo
@@ -26,8 +26,8 @@ Bot automatizado que monitora e extrai informações sobre shows e eventos cultu
 
 ```bash
 # Clone o repositório
-git clone https://github.com/SEU_USUARIO/sesc-bot.git
-cd sesc-bot
+git clone https://github.com/SEU_USUARIO/sesc-alertas.git
+cd sesc-alertas
 
 # Instale as dependências
 npm install
