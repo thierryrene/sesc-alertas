@@ -1,32 +1,70 @@
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-import { spawn } from 'child_process';
-import fs from 'fs';
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const { spawn } = require('child_process');
+const fs = require('fs');
 
-dotenv.config();
+// Carrega o dotenv
+require('dotenv').config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
+let mainWindow;
+let serverProcess;
 let isRunning = false;
 let lastExecution = null;
 let executionLogs = [];
 let availableUnits = [];
 let selectedUnits = [];
 
-// Carrega configurações do .env
-function getConfig() {
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs')
+    },
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    title: 'SESC Alertas',
+    autoHideMenuBar: true
+  });
+
+  mainWindow.loadFile('electron-ui.html');
+
+  // Abre DevTools em desenvolvimento
+  mainWindow.webContents.openDevTools();
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    if (serverProcess) {
+      serverProcess.kill();
+    }
+  });
+}
+
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// IPC Handlers
+
+// Carregar configurações
+ipcMain.handle('get-config', () => {
   return {
     telegramToken: process.env.TELEGRAM_BOT_TOKEN || '',
     telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
@@ -35,10 +73,10 @@ function getConfig() {
     maxRounds: process.env.MAX_ROUNDS || '8',
     geminiModel: process.env.GEMINI_MODEL || 'gemini-3-flash-preview'
   };
-}
+});
 
-// Salva configurações no .env
-function saveConfig(config) {
+// Salvar configurações
+ipcMain.handle('save-config', (event, config) => {
   const envContent = `# Telegram Configuration
 TELEGRAM_BOT_TOKEN=${config.telegramToken}
 TELEGRAM_CHAT_ID=${config.telegramChatId}
@@ -51,44 +89,23 @@ URL_PAGINA=${config.urlPagina}
 MAX_ROUNDS=${config.maxRounds}
 GEMINI_MODEL=${config.geminiModel}
 `;
+  
   fs.writeFileSync(path.join(__dirname, '.env'), envContent);
   
-  // Recarrega variáveis de ambiente
-  dotenv.config({ override: true });
-}
-
-// Rota principal
-app.get('/', (req, res) => {
-  res.render('index', {
-    config: getConfig(),
-    isRunning,
-    lastExecution,
-    logs: executionLogs,
-    availableUnits,
-    selectedUnits
-  });
+  // Recarrega variáveis
+  require('dotenv').config({ override: true });
+  
+  return { success: true, message: 'Configurações salvas com sucesso!' };
 });
 
-// Salvar configurações
-app.post('/config', (req, res) => {
+// Extrair unidades
+ipcMain.handle('extract-units', async () => {
   try {
-    saveConfig(req.body);
-    res.json({ success: true, message: 'Configurações salvas com sucesso!' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Extrair unidades do PDF
-app.post('/extract-units', async (req, res) => {
-  try {
-    // Importa as funções necessárias dinamicamente
-    const indexModule = await import('./index.js');
+    const axios = require('axios');
+    const cheerio = require('cheerio');
+    const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
     
-    const axios = (await import('axios')).default;
-    const cheerio = await import('cheerio');
-    
-    // Busca o PDF mais recente
+    // Busca PDF
     const urlPagina = process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/';
     const { data } = await axios.get(urlPagina);
     const $ = cheerio.load(data);
@@ -96,12 +113,11 @@ app.post('/extract-units', async (req, res) => {
     const pdfLink = element.attr('href');
     const pdfUrl = new URL(pdfLink, urlPagina).href;
     
-    // Baixa o PDF
+    // Baixa PDF
     const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
     const pdfBase64 = Buffer.from(response.data).toString('base64');
     
-    // Extrai unidades usando Gemini
-    const { GoogleGenerativeAI, SchemaType } = await import('@google/generative-ai');
+    // Extrai unidades
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
@@ -141,34 +157,28 @@ IMPORTANTE:
     const parsed = JSON.parse(text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim());
     availableUnits = parsed?.units || [];
     
-    res.json({ success: true, units: availableUnits });
+    return { success: true, units: availableUnits };
   } catch (error) {
-    console.error('Erro ao extrair unidades:', error);
-    res.status(500).json({ success: false, message: error.message });
+    return { success: false, message: error.message };
   }
 });
 
 // Salvar unidades selecionadas
-app.post('/select-units', (req, res) => {
-  try {
-    selectedUnits = req.body.units || [];
-    res.json({ success: true, message: 'Unidades selecionadas salvas!' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+ipcMain.handle('select-units', (event, units) => {
+  selectedUnits = units;
+  return { success: true, message: 'Unidades selecionadas salvas!' };
 });
 
 // Executar script
-app.post('/execute', (req, res) => {
+ipcMain.handle('execute-script', () => {
   if (isRunning) {
-    return res.json({ success: false, message: 'Uma execução já está em andamento!' });
+    return { success: false, message: 'Uma execução já está em andamento!' };
   }
 
   isRunning = true;
   executionLogs = [];
   const startTime = new Date();
 
-  // Passa as unidades selecionadas via variável de ambiente
   const env = { 
     ...process.env,
     SELECTED_UNITS: selectedUnits.join(',')
@@ -182,11 +192,17 @@ app.post('/execute', (req, res) => {
   child.stdout.on('data', (data) => {
     const log = data.toString();
     executionLogs.push({ time: new Date(), type: 'info', message: log });
+    if (mainWindow) {
+      mainWindow.webContents.send('log-update', executionLogs.slice(-50));
+    }
   });
 
   child.stderr.on('data', (data) => {
     const log = data.toString();
     executionLogs.push({ time: new Date(), type: 'error', message: log });
+    if (mainWindow) {
+      mainWindow.webContents.send('log-update', executionLogs.slice(-50));
+    }
   });
 
   child.on('close', (code) => {
@@ -203,30 +219,29 @@ app.post('/execute', (req, res) => {
       type: code === 0 ? 'success' : 'error',
       message: `Processo finalizado com código ${code}`
     });
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('execution-complete', { isRunning, lastExecution });
+      mainWindow.webContents.send('log-update', executionLogs.slice(-50));
+    }
   });
 
-  res.json({ success: true, message: 'Execução iniciada!' });
+  return { success: true, message: 'Execução iniciada!' };
 });
 
-// Status da execução
-app.get('/status', (req, res) => {
-  res.json({
+// Obter status
+ipcMain.handle('get-status', () => {
+  return {
     isRunning,
     lastExecution,
-    logs: executionLogs.slice(-50), // Últimas 50 linhas
+    logs: executionLogs.slice(-50),
     availableUnits,
     selectedUnits
-  });
+  };
 });
 
 // Limpar logs
-app.post('/clear-logs', (req, res) => {
+ipcMain.handle('clear-logs', () => {
   executionLogs = [];
-  res.json({ success: true, message: 'Logs limpos!' });
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 SESC Alertas GUI rodando em http://localhost:${PORT}`);
-  console.log(`📊 Acesse o painel de controle pelo navegador`);
-  console.log(`🌐 Também acessível via: http://127.0.0.1:${PORT}`);
+  return { success: true, message: 'Logs limpos!' };
 });
