@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { spawn } from 'child_process';
 import fs from 'fs';
+import scheduler from './scheduler.js';
+import database from './database.js';
 
 dotenv.config();
 
@@ -33,7 +35,14 @@ function getConfig() {
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     urlPagina: process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/',
     maxRounds: process.env.MAX_ROUNDS || '8',
-    geminiModel: process.env.GEMINI_MODEL || 'gemini-3-flash-preview'
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
+    cronSchedule: process.env.CRON_SCHEDULE || '0 8 * * *',
+    schedulerEnabled: process.env.SCHEDULER_ENABLED === 'true',
+    filterMinPrice: process.env.FILTER_MIN_PRICE || '0',
+    filterMaxPrice: process.env.FILTER_MAX_PRICE || '999999',
+    filterCategories: process.env.FILTER_CATEGORIES || '',
+    filterMinAge: process.env.FILTER_MIN_AGE || '0',
+    filterLocations: process.env.FILTER_LOCATIONS || ''
   };
 }
 
@@ -50,6 +59,17 @@ GEMINI_API_KEY=${config.geminiApiKey}
 URL_PAGINA=${config.urlPagina}
 MAX_ROUNDS=${config.maxRounds}
 GEMINI_MODEL=${config.geminiModel}
+
+# Scheduler Configuration
+CRON_SCHEDULE=${config.cronSchedule || '0 8 * * *'}
+SCHEDULER_ENABLED=${config.schedulerEnabled || 'false'}
+
+# Filters Configuration
+FILTER_MIN_PRICE=${config.filterMinPrice || '0'}
+FILTER_MAX_PRICE=${config.filterMaxPrice || '999999'}
+FILTER_CATEGORIES=${config.filterCategories || ''}
+FILTER_MIN_AGE=${config.filterMinAge || '0'}
+FILTER_LOCATIONS=${config.filterLocations || ''}
 `;
   fs.writeFileSync(path.join(__dirname, '.env'), envContent);
   
@@ -59,13 +79,19 @@ GEMINI_MODEL=${config.geminiModel}
 
 // Rota principal
 app.get('/', (req, res) => {
+  const stats = database.getStats();
+  const schedulerStatus = scheduler.getStatus();
+  
   res.render('index', {
     config: getConfig(),
     isRunning,
     lastExecution,
     logs: executionLogs,
     availableUnits,
-    selectedUnits
+    selectedUnits,
+    stats,
+    schedulerStatus,
+    schedulerPresets: scheduler.listPresets()
   });
 });
 
@@ -225,8 +251,91 @@ app.post('/clear-logs', (req, res) => {
   res.json({ success: true, message: 'Logs limpos!' });
 });
 
+// Rotas do Scheduler
+app.post('/scheduler/start', (req, res) => {
+  const cronExpression = req.body.cronExpression || process.env.CRON_SCHEDULE;
+  const result = scheduler.start(cronExpression);
+  
+  if (result.success) {
+    // Atualiza .env
+    const config = getConfig();
+    config.schedulerEnabled = 'true';
+    config.cronSchedule = cronExpression;
+    saveConfig(config);
+  }
+  
+  res.json(result);
+});
+
+app.post('/scheduler/stop', (req, res) => {
+  const result = scheduler.stop();
+  
+  if (result.success) {
+    // Atualiza .env
+    const config = getConfig();
+    config.schedulerEnabled = 'false';
+    saveConfig(config);
+  }
+  
+  res.json(result);
+});
+
+app.get('/scheduler/status', (req, res) => {
+  res.json(scheduler.getStatus());
+});
+
+app.post('/scheduler/run-now', async (req, res) => {
+  try {
+    const result = await scheduler.runNow();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Rotas do Banco de Dados
+app.get('/database/stats', (req, res) => {
+  res.json(database.getStats());
+});
+
+app.get('/database/events', (req, res) => {
+  const filters = {
+    location: req.query.location,
+    category: req.query.category,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate
+  };
+  const events = database.getEvents(filters);
+  res.json({ success: true, events });
+});
+
+app.get('/database/executions', (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const executions = database.getRecentExecutions(limit);
+  res.json({ success: true, executions });
+});
+
+app.post('/database/clean', (req, res) => {
+  const daysOld = parseInt(req.body.daysOld) || 90;
+  const deletedCount = database.cleanOldEvents(daysOld);
+  res.json({ success: true, message: `${deletedCount} eventos antigos removidos`, deletedCount });
+});
+
+// Inicia o scheduler se estiver habilitado no .env
+if (process.env.SCHEDULER_ENABLED === 'true') {
+  console.log('🕐 Iniciando agendamento automático...');
+  const result = scheduler.start();
+  if (result.success) {
+    console.log(`✅ Scheduler iniciado: ${result.schedule}`);
+    console.log(`📅 Próxima execução: ${result.nextExecution?.toLocaleString('pt-BR')}`);
+  } else {
+    console.error(`❌ Erro ao iniciar scheduler: ${result.message}`);
+  }
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 SESC Alertas GUI rodando em http://localhost:${PORT}`);
   console.log(`📊 Acesse o painel de controle pelo navegador`);
   console.log(`🌐 Também acessível via: http://127.0.0.1:${PORT}`);
+  console.log(`💾 Banco de dados: ${database.getStats().totalEvents} eventos cadastrados`);
 });

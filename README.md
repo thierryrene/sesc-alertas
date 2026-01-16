@@ -1,6 +1,6 @@
 # 🎭 SESC Alertas - Extrator de Eventos
 
-> **Versão:** Pre-Beta 0.6.0  
+> **Versão:** Pre-Beta 0.7.0  
 > **Status:** Em desenvolvimento ativo
 
 Bot automatizado que monitora e extrai informações sobre shows e eventos culturais do SESC SP, processando PDFs da programação oficial e enviando notificações organizadas via Telegram com destaque para eventos da semana atual.
@@ -11,22 +11,32 @@ Bot automatizado que monitora e extrai informações sobre shows e eventos cultu
 - ✅ Scraping automático da página oficial do SESC Em Cartaz
 - ✅ Download e processamento de PDFs da programação mensal
 - ✅ Análise inteligente com Google Gemini AI (modelo Flash)
-- ✅ **Seleção personalizada de unidades SESC** (Novo!)
+- ✅ **Seleção personalizada de unidades SESC**
 - ✅ Extração estruturada de eventos (nome, data, horário, local, preço, etc.)
 - ✅ Deduplicação automática de eventos
+- ✅ **Banco de dados SQLite para histórico** (Novo!)
+- ✅ **Filtros avançados (categoria, preço, idade)** (Novo!)
 - ✅ Envio de notificações formatadas para canal/grupo do Telegram
 - ✅ Suporte para mensagens longas (split inteligente respeitando limites do Telegram)
 - ✅ Sistema de retry e tratamento de rate limits
 
+### Agendamento Automático (Novo!)
+- ⏰ **Scheduler integrado (node-cron)**
+- 🕐 Execução automática por expressão cron
+- 📋 Presets prontos (diário, 2x ao dia, dias úteis, etc)
+- ▶️ Controle via interface web (start/stop)
+- 📊 Histórico de execuções no banco
+
 ### Interface de Gerenciamento
 - 🎨 Interface web moderna e responsiva
 - ⚙️ Configuração visual de todas as variáveis
-- 🏢 **Extração e seleção de unidades SESC** (Novo!)
-- ✅ Seleção múltipla de unidades para monitoramento
+- 🏢 Extração e seleção de unidades SESC
+- 🔍 **Configuração de filtros avançados** (Novo!)
+- 🕐 **Controles do agendamento automático** (Novo!)
+- 💾 **Dashboard com estatísticas do banco** (Novo!)
 - ▶️ Execução manual com um clique
-- 📊 Dashboard com status em tempo real
+- 📊 Status em tempo real
 - 📋 Visualização de logs com auto-refresh
-- 💾 Salvamento automático de configurações
 
 ## 📋 Pré-requisitos
 
@@ -103,15 +113,19 @@ O bot irá:
   "cheerio": "^1.1.2",
   "node-telegram-bot-api": "^0.63.0",
   "pdf-parse": "^2.4.5",
-  "express": "^4.18.2",
-  "ejs": "^3.1.9",
-  "dotenv": "^16.4.1"
+  "express": "^5.2.1",
+  "ejs": "^4.0.1",
+  "dotenv": "^17.2.3",
+  "better-sqlite3": "^11.8.1",
+  "node-cron": "^3.0.3"
 }
 ```
 
 ## 🏗️ Arquitetura
 
 - **Web Interface:** Express.js + EJS para painel de controle
+- **Database:** SQLite (better-sqlite3) para histórico e deduplicação
+- **Scheduler:** node-cron para agendamento automático
 - **Scraping:** Axios + Cheerio para extrair link do PDF
 - **IA:** Google Gemini Flash para análise semântica do PDF
 - **Mensageria:** node-telegram-bot-api para notificações
@@ -119,22 +133,48 @@ O bot irá:
 
 ## ⚠️ Limitações Conhecidas (Pre-Beta)
 
-- Sem agendamento automático integrado (requer cron externo ou execução manual)
 - Logs básicos (melhorias planejadas)
+- Interface web pode ser aprimorada
 
 ## 🗺️ Roadmap
 
-- [ ] Sistema de agendamento interno (cron integrado)
+- [x] Sistema de agendamento interno (cron integrado) ✅
+- [x] Banco de dados para histórico de eventos ✅
+- [x] Filtros avançados (categoria, preço, idade) ✅
 - [ ] Notificações por email
 - [ ] API REST para integração externa
-- [ ] Filtros avançados (categoria, preço, idade)
-- [ ] Banco de dados para histórico de eventos
+- [ ] Interface web aprimorada
 - [ ] Testes automatizados
 - [ ] Docker containerization
 
 ## 📝 Notas de Versão
 
-### Pre-Beta 0.6.0 (Atual)
+### Pre-Beta 0.7.0 (Atual) - ✨ Major Update
+- 🗄️ **Banco de dados SQLite integrado**
+  - Histórico completo de eventos
+  - Deduplicação por fingerprint (hash único)
+  - Rastreamento de execuções
+  - Estatísticas e analytics
+  - API para consulta de eventos históricos
+- ⏰ **Agendamento automático (node-cron)**
+  - Execução periódica configurável
+  - 10+ presets prontos (diário, 2x/dia, dias úteis, etc)
+  - Controle via interface web (start/stop)
+  - Suporte a expressões cron personalizadas
+- 🔍 **Filtros avançados**
+  - Filtro por categoria de evento
+  - Filtro por faixa de preço (mín/máx)
+  - Filtro por classificação etária
+  - Filtro por localização específica
+  - Combinação de múltiplos filtros
+- 📊 **Interface web aprimorada**
+  - Dashboard com estatísticas do banco
+  - Histórico de execuções
+  - Controles do scheduler integrados
+  - Configuração visual de filtros
+- 🔧 Melhorias de performance e estabilidade
+
+### Pre-Beta 0.6.0
 - ✨ **Envio em blocos separados:** Notificações agora são enviadas em 2 blocos distintos
   - **Bloco 1:** ⭐ Destaques desta semana (eventos de hoje até sábado)
   - **Bloco 2:** 📅 Próximos eventos do mês (restante do mês vigente)

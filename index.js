@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
+import database from './database.js';
 
 // Load environment variables
 dotenv.config();
@@ -303,13 +304,62 @@ function isThisWeek(eventDate) {
   return eventDate >= now && eventDate <= endOfWeek;
 }
 
+// Aplica filtros avançados nos eventos
+function applyAdvancedFilters(events) {
+  const filters = {
+    minPrice: parseFloat(process.env.FILTER_MIN_PRICE || 0),
+    maxPrice: parseFloat(process.env.FILTER_MAX_PRICE || 999999),
+    categories: (process.env.FILTER_CATEGORIES || '').split(',').map(c => c.trim().toLowerCase()).filter(Boolean),
+    minAge: parseInt(process.env.FILTER_MIN_AGE || 0),
+    locations: (process.env.FILTER_LOCATIONS || '').split(',').map(l => l.trim().toLowerCase()).filter(Boolean)
+  };
+
+  return events.filter(ev => {
+    // Filtro de preço
+    if (ev.price) {
+      const priceMatch = ev.price.match(/\d+/);
+      if (priceMatch) {
+        const price = parseFloat(priceMatch[0]);
+        if (price < filters.minPrice || price > filters.maxPrice) return false;
+      }
+    }
+
+    // Filtro de categoria
+    if (filters.categories.length > 0 && ev.category) {
+      const evCategory = ev.category.toLowerCase();
+      if (!filters.categories.some(cat => evCategory.includes(cat))) return false;
+    }
+
+    // Filtro de idade
+    if (ev.age) {
+      const ageMatch = ev.age.match(/\d+/);
+      if (ageMatch) {
+        const age = parseInt(ageMatch[0]);
+        if (age < filters.minAge) return false;
+      }
+    }
+
+    // Filtro de localização
+    if (filters.locations.length > 0 && ev.unit) {
+      const evLocation = ev.unit.toLowerCase();
+      if (!filters.locations.some(loc => evLocation.includes(loc))) return false;
+    }
+
+    return true;
+  });
+}
+
 // Filtra e ordena eventos por data
 function filterAndSortEvents(events) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   
+  // Aplica filtros avançados primeiro
+  const filtered = applyAdvancedFilters(events);
+  console.log(`🔍 Filtros aplicados: ${events.length} eventos → ${filtered.length} após filtros`);
+  
   // Adiciona data parseada aos eventos
-  const eventsWithDate = events.map(ev => ({
+  const eventsWithDate = filtered.map(ev => ({
     ...ev,
     parsedDate: parseEventDate(ev.date)
   }));
@@ -785,6 +835,9 @@ async function analyzeAllWithGemini(pdfUrl, { maxRounds = 8, selectedUnits = [] 
 }
 
 async function main() {
+  const executionId = database.startExecution();
+  const stats = { status: 'completed', eventsFound: 0, eventsNew: 0, errorMessage: null };
+
   try {
     // Validate environment variables
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !GEMINI_API_KEY) {
@@ -819,6 +872,28 @@ async function main() {
     console.log(`🧾 Total de eventos extraídos: ${result.payload.events.length}`);
     console.log(`⭐ Eventos desta semana: ${thisWeek.length}`);
     console.log(`📅 Eventos futuros: ${afterThisWeek.length}`);
+    
+    // Salva eventos no banco de dados
+    let newEventsCount = 0;
+    for (const event of all) {
+      const eventData = {
+        name: event.name,
+        date: event.date,
+        time: event.time,
+        location: event.unit,
+        price: event.price,
+        classification: event.age,
+        category: event.category,
+        description: event.description
+      };
+      const result = database.saveEvent(eventData);
+      if (result.isNew) newEventsCount++;
+    }
+    
+    console.log(`💾 Salvos no banco: ${all.length} eventos (${newEventsCount} novos)`);
+    
+    stats.eventsFound = all.length;
+    stats.eventsNew = newEventsCount;
     
     // Atualiza payload com eventos filtrados
     result.payload.events = all;
@@ -868,9 +943,18 @@ async function main() {
     }
 
     console.log('Processo concluído com sucesso!');
+    database.finishExecution(executionId, stats);
   } catch (error) {
     console.error('Erro no script:', error);
-    await bot.sendMessage(TELEGRAM_CHAT_ID, `❌ O script falhou: ${error.message}`);
+    stats.status = 'failed';
+    stats.errorMessage = error.message;
+    database.finishExecution(executionId, stats);
+    
+    try {
+      await bot.sendMessage(TELEGRAM_CHAT_ID, `❌ O script falhou: ${error.message}`);
+    } catch (telegramError) {
+      console.error('Erro ao enviar mensagem de erro para Telegram:', telegramError);
+    }
   }
 }
 
