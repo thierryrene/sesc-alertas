@@ -209,6 +209,121 @@ function normalizeText(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
+// Função para parsear data em formato brasileiro
+function parseEventDate(dateStr) {
+  if (!dateStr) return null;
+  
+  // Tenta vários formatos de data
+  const patterns = [
+    // DD/MM/YYYY ou DD/MM/YY
+    /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/,
+    // DD de MÊS
+    /(\d{1,2})\s+de\s+(\w+)/i,
+    // MÊS DD
+    /(\w+)\s+(\d{1,2})/i
+  ];
+  
+  const months = {
+    'janeiro': 0, 'jan': 0,
+    'fevereiro': 1, 'fev': 1,
+    'março': 2, 'mar': 2,
+    'abril': 3, 'abr': 3,
+    'maio': 4, 'mai': 4,
+    'junho': 5, 'jun': 5,
+    'julho': 6, 'jul': 6,
+    'agosto': 7, 'ago': 7,
+    'setembro': 8, 'set': 8,
+    'outubro': 9, 'out': 9,
+    'novembro': 10, 'nov': 10,
+    'dezembro': 11, 'dez': 11
+  };
+  
+  for (const pattern of patterns) {
+    const match = dateStr.match(pattern);
+    if (match) {
+      if (pattern.source.includes('\\/')) {
+        // Formato DD/MM/YYYY
+        const day = parseInt(match[1]);
+        const month = parseInt(match[2]) - 1;
+        let year = parseInt(match[3]);
+        if (year < 100) year += 2000;
+        return new Date(year, month, day);
+      } else if (pattern.source.includes('de')) {
+        // Formato "DD de MÊS"
+        const day = parseInt(match[1]);
+        const monthName = match[2].toLowerCase();
+        const month = months[monthName];
+        if (month !== undefined) {
+          const now = new Date();
+          return new Date(now.getFullYear(), month, day);
+        }
+      } else {
+        // Formato "MÊS DD"
+        const monthName = match[1].toLowerCase();
+        const day = parseInt(match[2]);
+        const month = months[monthName];
+        if (month !== undefined) {
+          const now = new Date();
+          return new Date(now.getFullYear(), month, day);
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+// Verifica se o evento está na semana atual
+function isThisWeek(eventDate) {
+  if (!eventDate) return false;
+  
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay()); // Domingo
+  startOfWeek.setHours(0, 0, 0, 0);
+  
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6); // Sábado
+  endOfWeek.setHours(23, 59, 59, 999);
+  
+  return eventDate >= startOfWeek && eventDate <= endOfWeek;
+}
+
+// Filtra e ordena eventos por data
+function filterAndSortEvents(events) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  // Adiciona data parseada aos eventos
+  const eventsWithDate = events.map(ev => ({
+    ...ev,
+    parsedDate: parseEventDate(ev.date)
+  }));
+  
+  // Filtra eventos futuros ou sem data definida
+  const futureEvents = eventsWithDate.filter(ev => {
+    if (!ev.parsedDate) return true; // Mantém eventos sem data
+    return ev.parsedDate >= now;
+  });
+  
+  // Separa em semana atual e posteriores
+  const thisWeek = futureEvents.filter(ev => ev.parsedDate && isThisWeek(ev.parsedDate));
+  const afterThisWeek = futureEvents.filter(ev => !ev.parsedDate || !isThisWeek(ev.parsedDate));
+  
+  // Ordena cada grupo por data
+  const sortByDate = (a, b) => {
+    if (!a.parsedDate && !b.parsedDate) return 0;
+    if (!a.parsedDate) return 1;
+    if (!b.parsedDate) return -1;
+    return a.parsedDate - b.parsedDate;
+  };
+  
+  thisWeek.sort(sortByDate);
+  afterThisWeek.sort(sortByDate);
+  
+  return { thisWeek, afterThisWeek, all: [...thisWeek, ...afterThisWeek] };
+}
+
 function normalizeEvents(events) {
   if (!Array.isArray(events)) return [];
   return events
@@ -263,45 +378,98 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
     }))
     .filter((ev) => ev.unit && ev.name && (ev.date || ev.time));
 
-  // Agrupa por unidade
-  const byUnit = new Map();
-  for (const ev of onlyValid) {
-    const key = ev.unit;
-    if (!byUnit.has(key)) byUnit.set(key, []);
-    byUnit.get(key).push(ev);
-  }
-
-  // Ordenação simples: por unidade (A-Z) e mantém ordem do modelo dentro
-  const units = Array.from(byUnit.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  // Filtra e ordena eventos
+  const { thisWeek, afterThisWeek } = filterAndSortEvents(onlyValid);
+  
+  const today = new Date();
+  const formattedToday = today.toLocaleDateString('pt-BR');
 
   const lines = [];
-  lines.push('🎤 Shows e eventos (Capital — SP)');
-  if (meta?.month) lines.push(`🗓️ Referência: ${normalizeText(meta.month)}`);
+  lines.push('🎤 Shows e eventos SESC');
+  if (meta?.month) lines.push(`📅 Referência: ${normalizeText(meta.month)}`);
+  lines.push(`📆 Consultado em: ${formattedToday}`);
   if (pdfUrl) lines.push(`🔗 PDF: ${pdfUrl}`);
   lines.push('');
 
-  if (units.length === 0) {
-    lines.push('⚠️ Não encontrei shows válidos nas unidades da Capital (SP) no conteúdo retornado.');
+  if (thisWeek.length === 0 && afterThisWeek.length === 0) {
+    lines.push('⚠️ Não há eventos futuros agendados no momento.');
     return lines.join('\n');
   }
 
-  for (const unit of units) {
-    lines.push(`🏛️ ${unit}`);
-    const list = byUnit.get(unit);
-    for (const ev of list) {
-      const header = `• 🎫 ${ev.name}`;
-      const when = [ev.date ? `🗓️ ${ev.date}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
-      const tags = [
-        ev.category ? `🏷️ ${ev.category}` : null,
-        ev.price ? `💳 ${ev.price}` : null,
-        ev.age ? `🔞 ${ev.age}` : null
-      ].filter(Boolean).join(' · ');
+  // Seção: DESTAQUES DA SEMANA
+  if (thisWeek.length > 0) {
+    lines.push('⭐ DESTAQUES DESTA SEMANA ⭐');
+    lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+    lines.push('');
 
-      lines.push(header);
-      if (when) lines.push(`  ${when}`);
-      if (tags) lines.push(`  ${tags}`);
-      if (ev.description) lines.push(`  📝 ${ev.description}`);
-      lines.push('');
+    // Agrupa eventos da semana por unidade
+    const byUnitThisWeek = new Map();
+    for (const ev of thisWeek) {
+      const key = ev.unit;
+      if (!byUnitThisWeek.has(key)) byUnitThisWeek.set(key, []);
+      byUnitThisWeek.get(key).push(ev);
+    }
+
+    const unitsThisWeek = Array.from(byUnitThisWeek.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+    for (const unit of unitsThisWeek) {
+      lines.push(`🏛️ ${unit}`);
+      const list = byUnitThisWeek.get(unit);
+      for (const ev of list) {
+        const header = `• 🎫 ${ev.name}`;
+        const when = [ev.date ? `🗓️ ${ev.date}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
+        const tags = [
+          ev.category ? `🏷️ ${ev.category}` : null,
+          ev.price ? `💳 ${ev.price}` : null,
+          ev.age ? `🔞 ${ev.age}` : null
+        ].filter(Boolean).join(' · ');
+
+        lines.push(header);
+        if (when) lines.push(`  ${when}`);
+        if (tags) lines.push(`  ${tags}`);
+        if (ev.description) lines.push(`  📝 ${ev.description}`);
+        lines.push('');
+      }
+    }
+
+    lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+    lines.push('');
+  }
+
+  // Seção: PRÓXIMOS EVENTOS
+  if (afterThisWeek.length > 0) {
+    lines.push('📅 PRÓXIMOS EVENTOS');
+    lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+    lines.push('');
+
+    // Agrupa eventos futuros por unidade
+    const byUnitAfter = new Map();
+    for (const ev of afterThisWeek) {
+      const key = ev.unit;
+      if (!byUnitAfter.has(key)) byUnitAfter.set(key, []);
+      byUnitAfter.get(key).push(ev);
+    }
+
+    const unitsAfter = Array.from(byUnitAfter.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+    for (const unit of unitsAfter) {
+      lines.push(`🏛️ ${unit}`);
+      const list = byUnitAfter.get(unit);
+      for (const ev of list) {
+        const header = `• 🎫 ${ev.name}`;
+        const when = [ev.date ? `🗓️ ${ev.date}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
+        const tags = [
+          ev.category ? `🏷️ ${ev.category}` : null,
+          ev.price ? `💳 ${ev.price}` : null,
+          ev.age ? `🔞 ${ev.age}` : null
+        ].filter(Boolean).join(' · ');
+
+        lines.push(header);
+        if (when) lines.push(`  ${when}`);
+        if (tags) lines.push(`  ${tags}`);
+        if (ev.description) lines.push(`  📝 ${ev.description}`);
+        lines.push('');
+      }
     }
   }
 
@@ -628,10 +796,20 @@ async function main() {
     });
     console.log('Organizando conteúdo...');
 
+    // Filtra e ordena eventos
+    const { thisWeek, afterThisWeek, all } = filterAndSortEvents(result.payload.events);
+    
+    console.log(`🧾 Total de eventos extraídos: ${result.payload.events.length}`);
+    console.log(`⭐ Eventos desta semana: ${thisWeek.length}`);
+    console.log(`📅 Eventos futuros: ${afterThisWeek.length}`);
+    
+    // Atualiza payload com eventos filtrados
+    result.payload.events = all;
+
     let fullMessage;
 
     const header = [
-      '🎭 Resumo de Eventos SESC — Capital (SP)',
+      '🎭 Resumo de Eventos SESC',
       pdfName ? `📄 Guia: ${pdfName}` : null,
       `📅 Consulta: ${new Date().toLocaleString('pt-BR')}`
     ]
@@ -640,7 +818,6 @@ async function main() {
 
     if (result.ok) {
       const body = renderEventsTelegramFromJson(result.payload, pdfUrl);
-      console.log(`🧾 Total final de eventos: ${result.payload.events.length}`);
       fullMessage = `${header}\n\n${body}`.trim();
     } else {
       console.log('⚠️ Falha no modo JSON/continuação. Enviando fallback formatado do texto retornado.');
