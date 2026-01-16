@@ -213,16 +213,6 @@ function normalizeText(value) {
 function parseEventDate(dateStr) {
   if (!dateStr) return null;
   
-  // Tenta vários formatos de data
-  const patterns = [
-    // DD/MM/YYYY ou DD/MM/YY
-    /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/,
-    // DD de MÊS
-    /(\d{1,2})\s+de\s+(\w+)/i,
-    // MÊS DD
-    /(\w+)\s+(\d{1,2})/i
-  ];
-  
   const months = {
     'janeiro': 0, 'jan': 0,
     'fevereiro': 1, 'fev': 1,
@@ -238,55 +228,79 @@ function parseEventDate(dateStr) {
     'dezembro': 11, 'dez': 11
   };
   
-  for (const pattern of patterns) {
-    const match = dateStr.match(pattern);
+  const parseSingleDate = (str) => {
+    // Formato DD/MM/YYYY ou DD/MM/YY
+    let match = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
     if (match) {
-      if (pattern.source.includes('\\/')) {
-        // Formato DD/MM/YYYY
-        const day = parseInt(match[1]);
-        const month = parseInt(match[2]) - 1;
-        let year = parseInt(match[3]);
-        if (year < 100) year += 2000;
-        return new Date(year, month, day);
-      } else if (pattern.source.includes('de')) {
-        // Formato "DD de MÊS"
-        const day = parseInt(match[1]);
-        const monthName = match[2].toLowerCase();
-        const month = months[monthName];
-        if (month !== undefined) {
-          const now = new Date();
-          return new Date(now.getFullYear(), month, day);
-        }
-      } else {
-        // Formato "MÊS DD"
-        const monthName = match[1].toLowerCase();
-        const day = parseInt(match[2]);
-        const month = months[monthName];
-        if (month !== undefined) {
-          const now = new Date();
-          return new Date(now.getFullYear(), month, day);
-        }
+      const day = parseInt(match[1]);
+      const month = parseInt(match[2]) - 1;
+      let year = parseInt(match[3]);
+      if (year < 100) year += 2000;
+      return new Date(year, month, day);
+    }
+    
+    // Formato "DD de MÊS"
+    match = str.match(/(\d{1,2})\s+de\s+(\w+)/i);
+    if (match) {
+      const day = parseInt(match[1]);
+      const monthName = match[2].toLowerCase();
+      const month = months[monthName];
+      if (month !== undefined) {
+        const now = new Date();
+        return new Date(now.getFullYear(), month, day);
       }
+    }
+    
+    // Formato "MÊS DD"
+    match = str.match(/(\w+)\s+(\d{1,2})/i);
+    if (match) {
+      const monthName = match[1].toLowerCase();
+      const day = parseInt(match[2]);
+      const month = months[monthName];
+      if (month !== undefined) {
+        const now = new Date();
+        return new Date(now.getFullYear(), month, day);
+      }
+    }
+    
+    return null;
+  };
+  
+  // Extrai todas as datas possíveis da string
+  const allMatches = [
+    ...dateStr.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g),
+    ...dateStr.matchAll(/(\d{1,2})\s+de\s+(\w+)/gi),
+    ...dateStr.matchAll(/(\w+)\s+(\d{1,2})/gi)
+  ];
+  
+  const dates = [];
+  for (const match of allMatches) {
+    const date = parseSingleDate(match[0]);
+    if (date && !dates.some(d => d.getTime() === date.getTime())) {
+      dates.push(date);
     }
   }
   
-  return null;
+  // Retorna a primeira data encontrada (mais conservador para filtro)
+  return dates.length > 0 ? dates[0] : null;
 }
 
-// Verifica se o evento está na semana atual
+// Verifica se o evento está na semana atual (e é futuro)
 function isThisWeek(eventDate) {
   if (!eventDate) return false;
   
   const now = new Date();
+  now.setHours(0, 0, 0, 0); // Início do dia atual
+  
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay()); // Domingo
-  startOfWeek.setHours(0, 0, 0, 0);
   
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6); // Sábado
   endOfWeek.setHours(23, 59, 59, 999);
   
-  return eventDate >= startOfWeek && eventDate <= endOfWeek;
+  // Evento deve ser de hoje em diante E dentro da semana atual
+  return eventDate >= now && eventDate <= endOfWeek;
 }
 
 // Filtra e ordena eventos por data
@@ -300,10 +314,15 @@ function filterAndSortEvents(events) {
     parsedDate: parseEventDate(ev.date)
   }));
   
-  // Filtra eventos futuros ou sem data definida
+  // Filtra apenas eventos de hoje em diante (exclui passados)
+  const passedEvents = [];
   const futureEvents = eventsWithDate.filter(ev => {
     if (!ev.parsedDate) return true; // Mantém eventos sem data
-    return ev.parsedDate >= now;
+    const isFuture = ev.parsedDate >= now;
+    if (!isFuture) {
+      passedEvents.push({ name: ev.name, date: ev.date, parsed: ev.parsedDate.toLocaleDateString('pt-BR') });
+    }
+    return isFuture; // >= hoje às 00:00 (inclui hoje)
   });
   
   // Separa em semana atual e posteriores
@@ -320,6 +339,26 @@ function filterAndSortEvents(events) {
   
   thisWeek.sort(sortByDate);
   afterThisWeek.sort(sortByDate);
+  
+  // Log de debug para verificar filtro
+  const todayStr = now.toLocaleDateString('pt-BR');
+  console.log(`📊 Filtro de datas (hoje: ${todayStr}): ${events.length} total → ${futureEvents.length} futuros (${thisWeek.length} esta semana, ${afterThisWeek.length} após)`);
+  
+  if (passedEvents.length > 0) {
+    console.log(`   ⏮️ ${passedEvents.length} eventos passados excluídos:`);
+    passedEvents.slice(0, 5).forEach(ev => {
+      console.log(`      • ${ev.name} - ${ev.date} (parseado: ${ev.parsed})`);
+    });
+    if (passedEvents.length > 5) {
+      console.log(`      ... e mais ${passedEvents.length - 5} eventos`);
+    }
+  }
+  
+  if (thisWeek.length > 0) {
+    const firstDate = thisWeek[0].parsedDate?.toLocaleDateString('pt-BR');
+    const lastDate = thisWeek[thisWeek.length - 1].parsedDate?.toLocaleDateString('pt-BR');
+    console.log(`   Esta semana: ${firstDate} até ${lastDate}`);
+  }
   
   return { thisWeek, afterThisWeek, all: [...thisWeek, ...afterThisWeek] };
 }
