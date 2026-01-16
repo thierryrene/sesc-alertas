@@ -1,6 +1,6 @@
 {
-  "name": "sesc-bot",
-  "version": "1.0.0",
+  "name": "sesc-alertas",
+  "version": "0.1.0",
   "main": "index.js",
   "type": "module",
   "scripts": {
