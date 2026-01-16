@@ -181,3 +181,100 @@ window.addEventListener('DOMContentLoaded', () => {
     startStatusPolling();
   }
 });
+
+// Extract units from PDF
+document.getElementById('extract-units-btn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('extract-units-btn');
+  const loading = document.getElementById('units-loading');
+  const container = document.getElementById('units-container');
+  
+  btn.disabled = true;
+  loading.style.display = 'block';
+  container.innerHTML = '';
+  
+  try {
+    const response = await fetch('/extract-units', { method: 'POST' });
+    const result = await response.json();
+    
+    if (result.success && result.units) {
+      // Render units checkboxes
+      const grid = document.createElement('div');
+      grid.className = 'units-grid';
+      
+      result.units.forEach(unit => {
+        const label = document.createElement('label');
+        label.className = 'unit-checkbox';
+        label.innerHTML = `
+          <input type="checkbox" name="unit" value="${escapeHtml(unit)}">
+          <span>${escapeHtml(unit)}</span>
+        `;
+        grid.appendChild(label);
+      });
+      
+      const actions = document.createElement('div');
+      actions.className = 'units-actions';
+      actions.innerHTML = `
+        <button id="select-all-btn" class="btn btn-small">✅ Selecionar Todas</button>
+        <button id="deselect-all-btn" class="btn btn-small">❌ Desmarcar Todas</button>
+        <button id="save-units-btn" class="btn btn-primary">💾 Salvar Seleção</button>
+      `;
+      
+      container.appendChild(grid);
+      container.appendChild(actions);
+      
+      // Add event listeners
+      setupUnitActions();
+    } else {
+      container.innerHTML = '<p class="no-units">Erro ao extrair unidades. Tente novamente.</p>';
+    }
+  } catch (error) {
+    container.innerHTML = `<p class="no-units">Erro: ${escapeHtml(error.message)}</p>`;
+  } finally {
+    loading.style.display = 'none';
+    btn.disabled = false;
+  }
+});
+
+function setupUnitActions() {
+  // Select all
+  document.getElementById('select-all-btn')?.addEventListener('click', () => {
+    document.querySelectorAll('.unit-checkbox input[type="checkbox"]').forEach(cb => {
+      cb.checked = true;
+    });
+  });
+  
+  // Deselect all
+  document.getElementById('deselect-all-btn')?.addEventListener('click', () => {
+    document.querySelectorAll('.unit-checkbox input[type="checkbox"]').forEach(cb => {
+      cb.checked = false;
+    });
+  });
+  
+  // Save selection
+  document.getElementById('save-units-btn')?.addEventListener('click', async () => {
+    const selected = Array.from(
+      document.querySelectorAll('.unit-checkbox input[type="checkbox"]:checked')
+    ).map(cb => cb.value);
+    
+    try {
+      const response = await fetch('/select-units', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ units: selected })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showAlert('success', `${selected.length} unidade(s) selecionada(s)!`);
+        
+        // Refresh page to update execution panel
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showAlert('error', result.message);
+      }
+    } catch (error) {
+      showAlert('error', 'Erro ao salvar seleção: ' + error.message);
+    }
+  });
+}

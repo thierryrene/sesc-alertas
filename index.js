@@ -391,7 +391,51 @@ async function downloadPdfAsBase64(url) {
   }
 }
 
-async function analyzeWithGemini(pdfBase64, { extraInstructions = '' } = {}) {
+async function extractUnitsFromPDF(pdfBase64) {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: GEMINI_MODEL,
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            units: {
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING }
+            }
+          }
+        }
+      }
+    });
+
+    const prompt = `Analise o PDF da programação do SESC e extraia TODAS as unidades/locais mencionados.
+
+IMPORTANTE:
+- Liste apenas os nomes das unidades SESC (ex: "Sesc Pompeia", "Sesc Ipiranga", etc)
+- Não inclua outras informações, apenas os nomes das unidades
+- Retorne em ordem alfabética
+- Formato: array de strings com os nomes das unidades`;
+
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: pdfBase64,
+          mimeType: "application/pdf",
+        },
+      },
+      prompt,
+    ]);
+
+    const parsed = extractJson(result.response.text());
+    return parsed?.units || [];
+  } catch (error) {
+    console.error('Erro ao extrair unidades:', error);
+    return [];
+  }
+}
+
+async function analyzeWithGemini(pdfBase64, { extraInstructions = '', selectedUnits = [] } = {}) {
   try {
     const model = genAI.getGenerativeModel({
       model: GEMINI_MODEL,
@@ -432,7 +476,12 @@ async function analyzeWithGemini(pdfBase64, { extraInstructions = '' } = {}) {
       }
     });
 
-    const prompt = `Me liste todos os shows na capital de sp presentes na programação do pdf em anexo.
+    const unitFilter = selectedUnits.length > 0 
+      ? `\nAPENAS EXTRAIA EVENTOS DAS SEGUINTES UNIDADES:\n${selectedUnits.map(u => `- ${u}`).join('\n')}`
+      : '';
+
+    const prompt = `Me liste todos os shows presentes na programação do pdf em anexo.
+${unitFilter}
 
 REGRAS TÉCNICAS (MANTENHA O FORMATO):
 - Responda estritamente com o JSON definido no schema.
@@ -456,7 +505,7 @@ ${extraInstructions ? `\nINSTRUÇÕES EXTRAS:\n${extraInstructions}` : ''}`;
   }
 }
 
-async function analyzeAllWithGemini(pdfUrl, { maxRounds = 8 } = {}) {
+async function analyzeAllWithGemini(pdfUrl, { maxRounds = 8, selectedUnits = [] } = {}) {
   const aggregated = {
     meta: { city: 'São Paulo', scope: 'Capital', source: 'Sesc Em Cartaz', month: '' },
     events: []
@@ -497,7 +546,10 @@ async function analyzeAllWithGemini(pdfUrl, { maxRounds = 8 } = {}) {
     }, 1000);
 
     try {
-      raw = await analyzeWithGemini(pdfBase64, { extraInstructions: continuationHint });
+      raw = await analyzeWithGemini(pdfBase64, { 
+        extraInstructions: continuationHint,
+        selectedUnits 
+      });
     } catch (err) {
       clearInterval(progressInterval);
       process.stdout.write('\n'); // Quebra linha
@@ -554,6 +606,14 @@ async function main() {
       throw new Error('Variáveis de ambiente faltando! Verifique o arquivo .env');
     }
 
+    // Carrega unidades selecionadas da variável de ambiente (se existir)
+    const selectedUnitsEnv = process.env.SELECTED_UNITS || '';
+    const selectedUnits = selectedUnitsEnv ? selectedUnitsEnv.split(',').map(u => u.trim()).filter(Boolean) : [];
+
+    if (selectedUnits.length > 0) {
+      console.log(`🎯 Filtrando apenas as unidades: ${selectedUnits.join(', ')}`);
+    }
+
     console.log('Buscando o PDF mais recente...');
     const { url: pdfUrl, text: pdfName } = await findLatestPDF();
 
@@ -562,7 +622,10 @@ async function main() {
     console.log(`📅 Data da consulta: ${new Date().toLocaleString('pt-BR')}\n`);
 
     console.log('Analisando o PDF com Gemini API...');
-    const result = await analyzeAllWithGemini(pdfUrl, { maxRounds: 8 });
+    const result = await analyzeAllWithGemini(pdfUrl, { 
+      maxRounds: 8,
+      selectedUnits 
+    });
     console.log('Organizando conteúdo...');
 
     let fullMessage;
