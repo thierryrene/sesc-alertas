@@ -1,17 +1,11 @@
 {
   "name": "sesc-alertas",
-  "version": "0.4.0",
-  "main": "main.cjs",
+  "version": "0.5.0",
+  "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
     "gui": "node server.js",
-    "electron": "electron .",
-    "electron-dev": "electron . --inspect",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -27,9 +21,5 @@
     "express": "^5.2.1",
     "node-telegram-bot-api": "^0.63.0",
     "pdf-parse": "^2.4.5"
-  },
-  "devDependencies": {
-    "electron": "^40.0.0",
-    "electron-builder": "^26.4.0"
   }
 }
