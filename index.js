@@ -229,6 +229,9 @@ function parseEventDate(dateStr) {
     'dezembro': 11, 'dez': 11
   };
   
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
   const parseSingleDate = (str) => {
     // Formato DD/MM/YYYY ou DD/MM/YY
     let match = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
@@ -238,6 +241,14 @@ function parseEventDate(dateStr) {
       let year = parseInt(match[3]);
       if (year < 100) year += 2000;
       return new Date(year, month, day);
+    }
+
+    // Formato DD/MM (assume ano atual)
+    match = str.match(/(\d{1,2})\/(\d{1,2})$/);
+    if (match) {
+      const day = parseInt(match[1]);
+      const month = parseInt(match[2]) - 1;
+      return new Date(currentYear, month, day);
     }
     
     // Formato "DD de MÊS"
@@ -267,18 +278,50 @@ function parseEventDate(dateStr) {
     return null;
   };
   
-  // Extrai todas as datas possíveis da string
+  // Extrai todas as datas possíveis da string, incluindo intervalos
   const allMatches = [
-    ...dateStr.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g),
-    ...dateStr.matchAll(/(\d{1,2})\s+de\s+(\w+)/gi),
-    ...dateStr.matchAll(/(\w+)\s+(\d{1,2})/gi)
+    ...dateStr.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g), // 15/01/2026
+    ...dateStr.matchAll(/(\d{1,2})\/(\d{1,2})(?!\/)/g),        // 15/01
+    ...dateStr.matchAll(/(\d{1,2})\s+de\s+(\w+)/gi),           // 15 de janeiro
+    ...dateStr.matchAll(/(\w+)\s+(\d{1,2})/gi)                 // janeiro 15
   ];
-  
+
+  // Intervalos do tipo "15 a 20/01" ou "15-20/01"
+  const rangeDayMonth = [
+    ...dateStr.matchAll(/(\d{1,2})\s*[aà-]\s*(\d{1,2})\/(\d{1,2})/gi)
+  ];
+
+  // Intervalos do tipo "15 a 20 de janeiro"
+  const rangeDayMonthName = [
+    ...dateStr.matchAll(/(\d{1,2})\s*[aà-]\s*(\d{1,2})\s+de\s+(\w+)/gi)
+  ];
+
   const dates = [];
   for (const match of allMatches) {
     const date = parseSingleDate(match[0]);
     if (date && !dates.some(d => d.getTime() === date.getTime())) {
       dates.push(date);
+    }
+  }
+
+  for (const match of rangeDayMonth) {
+    const startDay = parseInt(match[1]);
+    const month = parseInt(match[3]) - 1;
+    const date = new Date(currentYear, month, startDay);
+    if (!dates.some(d => d.getTime() === date.getTime())) {
+      dates.push(date);
+    }
+  }
+
+  for (const match of rangeDayMonthName) {
+    const startDay = parseInt(match[1]);
+    const monthName = match[3].toLowerCase();
+    const month = months[monthName];
+    if (month !== undefined) {
+      const date = new Date(currentYear, month, startDay);
+      if (!dates.some(d => d.getTime() === date.getTime())) {
+        dates.push(date);
+      }
     }
   }
   
