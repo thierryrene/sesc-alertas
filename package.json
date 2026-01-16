@@ -1,6 +1,6 @@
 {
   "name": "sesc-alertas",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "main": "index.js",
   "type": "module",
   "scripts": {

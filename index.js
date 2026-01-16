@@ -423,100 +423,78 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
   const today = new Date();
   const formattedToday = today.toLocaleDateString('pt-BR');
 
-  const lines = [];
-  lines.push('🎤 Shows e eventos SESC');
-  if (meta?.month) lines.push(`📅 Referência: ${normalizeText(meta.month)}`);
-  lines.push(`📆 Consultado em: ${formattedToday}`);
-  if (pdfUrl) lines.push(`🔗 PDF: ${pdfUrl}`);
-  lines.push('');
+  // Função auxiliar para renderizar lista de eventos por unidade
+  const renderEventsList = (eventsList) => {
+    const lines = [];
+    const byUnit = new Map();
+    
+    for (const ev of eventsList) {
+      const key = ev.unit;
+      if (!byUnit.has(key)) byUnit.set(key, []);
+      byUnit.get(key).push(ev);
+    }
 
-  if (thisWeek.length === 0 && afterThisWeek.length === 0) {
-    lines.push('⚠️ Não há eventos futuros agendados no momento.');
-    return lines.join('\n');
-  }
+    const units = Array.from(byUnit.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
-  // Seção: DESTAQUES DA SEMANA
+    for (const unit of units) {
+      lines.push(`🏛️ ${unit}`);
+      const list = byUnit.get(unit);
+      for (const ev of list) {
+        const header = `• 🎫 ${ev.name}`;
+        const when = [ev.date ? `🗓️ ${ev.date}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
+        const tags = [
+          ev.category ? `🏷️ ${ev.category}` : null,
+          ev.price ? `💳 ${ev.price}` : null,
+          ev.age ? `🔞 ${ev.age}` : null
+        ].filter(Boolean).join(' · ');
+
+        lines.push(header);
+        if (when) lines.push(`  ${when}`);
+        if (tags) lines.push(`  ${tags}`);
+        if (ev.description) lines.push(`  📝 ${ev.description}`);
+        lines.push('');
+      }
+    }
+    
+    return lines;
+  };
+
+  // Bloco 1: Destaques da Semana
+  const thisWeekBlock = [];
   if (thisWeek.length > 0) {
-    lines.push('⭐ DESTAQUES DESTA SEMANA ⭐');
-    lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
-    lines.push('');
-
-    // Agrupa eventos da semana por unidade
-    const byUnitThisWeek = new Map();
-    for (const ev of thisWeek) {
-      const key = ev.unit;
-      if (!byUnitThisWeek.has(key)) byUnitThisWeek.set(key, []);
-      byUnitThisWeek.get(key).push(ev);
-    }
-
-    const unitsThisWeek = Array.from(byUnitThisWeek.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-    for (const unit of unitsThisWeek) {
-      lines.push(`🏛️ ${unit}`);
-      const list = byUnitThisWeek.get(unit);
-      for (const ev of list) {
-        const header = `• 🎫 ${ev.name}`;
-        const when = [ev.date ? `🗓️ ${ev.date}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
-        const tags = [
-          ev.category ? `🏷️ ${ev.category}` : null,
-          ev.price ? `💳 ${ev.price}` : null,
-          ev.age ? `🔞 ${ev.age}` : null
-        ].filter(Boolean).join(' · ');
-
-        lines.push(header);
-        if (when) lines.push(`  ${when}`);
-        if (tags) lines.push(`  ${tags}`);
-        if (ev.description) lines.push(`  📝 ${ev.description}`);
-        lines.push('');
-      }
-    }
-
-    lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
-    lines.push('');
+    thisWeekBlock.push('⭐ DESTAQUES DESTA SEMANA ⭐');
+    thisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+    thisWeekBlock.push('');
+    thisWeekBlock.push('🎤 Shows e eventos SESC');
+    if (meta?.month) thisWeekBlock.push(`📅 Referência: ${normalizeText(meta.month)}`);
+    thisWeekBlock.push(`📆 Consultado em: ${formattedToday}`);
+    if (pdfUrl) thisWeekBlock.push(`🔗 PDF: ${pdfUrl}`);
+    thisWeekBlock.push('');
+    thisWeekBlock.push(...renderEventsList(thisWeek));
+    thisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
-  // Seção: PRÓXIMOS EVENTOS
+  // Bloco 2: Próximos Eventos
+  const afterThisWeekBlock = [];
   if (afterThisWeek.length > 0) {
-    lines.push('📅 PRÓXIMOS EVENTOS');
-    lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
-    lines.push('');
-
-    // Agrupa eventos futuros por unidade
-    const byUnitAfter = new Map();
-    for (const ev of afterThisWeek) {
-      const key = ev.unit;
-      if (!byUnitAfter.has(key)) byUnitAfter.set(key, []);
-      byUnitAfter.get(key).push(ev);
-    }
-
-    const unitsAfter = Array.from(byUnitAfter.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-    for (const unit of unitsAfter) {
-      lines.push(`🏛️ ${unit}`);
-      const list = byUnitAfter.get(unit);
-      for (const ev of list) {
-        const header = `• 🎫 ${ev.name}`;
-        const when = [ev.date ? `🗓️ ${ev.date}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
-        const tags = [
-          ev.category ? `🏷️ ${ev.category}` : null,
-          ev.price ? `💳 ${ev.price}` : null,
-          ev.age ? `🔞 ${ev.age}` : null
-        ].filter(Boolean).join(' · ');
-
-        lines.push(header);
-        if (when) lines.push(`  ${when}`);
-        if (tags) lines.push(`  ${tags}`);
-        if (ev.description) lines.push(`  📝 ${ev.description}`);
-        lines.push('');
-      }
-    }
+    afterThisWeekBlock.push('📅 PRÓXIMOS EVENTOS DO MÊS');
+    afterThisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
+    afterThisWeekBlock.push('');
+    afterThisWeekBlock.push('🎤 Shows e eventos SESC');
+    if (meta?.month) afterThisWeekBlock.push(`📅 Referência: ${normalizeText(meta.month)}`);
+    afterThisWeekBlock.push(`📆 Consultado em: ${formattedToday}`);
+    if (pdfUrl) afterThisWeekBlock.push(`🔗 PDF: ${pdfUrl}`);
+    afterThisWeekBlock.push('');
+    afterThisWeekBlock.push(...renderEventsList(afterThisWeek));
   }
 
-  // Normaliza espaços/linhas
-  return lines
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  // Retorna objeto com os dois blocos
+  return {
+    thisWeek: thisWeekBlock.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+    afterThisWeek: afterThisWeekBlock.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+    hasThisWeek: thisWeek.length > 0,
+    hasAfterThisWeek: afterThisWeek.length > 0
+  };
 }
 
 async function sendTelegramLongText({ botInstance, chatId, text }) {
@@ -845,28 +823,49 @@ async function main() {
     // Atualiza payload com eventos filtrados
     result.payload.events = all;
 
-    let fullMessage;
-
-    const header = [
-      '🎭 Resumo de Eventos SESC',
-      pdfName ? `📄 Guia: ${pdfName}` : null,
-      `📅 Consulta: ${new Date().toLocaleString('pt-BR')}`
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    if (result.ok) {
-      const body = renderEventsTelegramFromJson(result.payload, pdfUrl);
-      fullMessage = `${header}\n\n${body}`.trim();
-    } else {
-      console.log('⚠️ Falha no modo JSON/continuação. Enviando fallback formatado do texto retornado.');
-      const body = formatSummaryForTelegram(result.raw);
-      fullMessage = `${header}\n\n🔗 PDF: ${pdfUrl}\n\n${body}`.trim();
-    }
-
     console.log('Enviando para o Telegram...');
 
-    await sendTelegramLongText({ botInstance: bot, chatId: TELEGRAM_CHAT_ID, text: fullMessage });
+    if (result.ok) {
+      const blocks = renderEventsTelegramFromJson(result.payload, pdfUrl);
+      
+      // Envia bloco 1: Destaques da Semana
+      if (blocks.hasThisWeek) {
+        console.log('📤 Enviando bloco 1: Destaques da Semana...');
+        await sendTelegramLongText({ 
+          botInstance: bot, 
+          chatId: TELEGRAM_CHAT_ID, 
+          text: blocks.thisWeek 
+        });
+        await sleep(1000); // Pausa entre blocos
+      }
+      
+      // Envia bloco 2: Próximos Eventos
+      if (blocks.hasAfterThisWeek) {
+        console.log('📤 Enviando bloco 2: Próximos Eventos do Mês...');
+        await sendTelegramLongText({ 
+          botInstance: bot, 
+          chatId: TELEGRAM_CHAT_ID, 
+          text: blocks.afterThisWeek 
+        });
+      }
+      
+      if (!blocks.hasThisWeek && !blocks.hasAfterThisWeek) {
+        console.log('⚠️ Nenhum evento futuro para enviar.');
+        await bot.sendMessage(TELEGRAM_CHAT_ID, '⚠️ Não há eventos futuros agendados no momento.');
+      }
+    } else {
+      console.log('⚠️ Falha no modo JSON/continuação. Enviando fallback formatado do texto retornado.');
+      const header = [
+        '🎭 Resumo de Eventos SESC',
+        pdfName ? `📄 Guia: ${pdfName}` : null,
+        `📅 Consulta: ${new Date().toLocaleString('pt-BR')}`
+      ]
+        .filter(Boolean)
+        .join('\n');
+      const body = formatSummaryForTelegram(result.raw);
+      const fullMessage = `${header}\n\n🔗 PDF: ${pdfUrl}\n\n${body}`.trim();
+      await sendTelegramLongText({ botInstance: bot, chatId: TELEGRAM_CHAT_ID, text: fullMessage });
+    }
 
     console.log('Processo concluído com sucesso!');
   } catch (error) {
