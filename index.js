@@ -286,22 +286,42 @@ function parseEventDate(dateStr) {
   return dates.length > 0 ? dates[0] : null;
 }
 
-// Verifica se o evento está na semana atual (e é futuro)
+// Verifica se o evento está na semana atual (de hoje até próximo sábado)
 function isThisWeek(eventDate) {
   if (!eventDate) return false;
   
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Início do dia atual
   
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Domingo
-  
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6); // Sábado
+  // Próximo sábado a partir de hoje
+  const daysUntilSaturday = (6 - now.getDay() + 7) % 7; // 0 se já é sábado
+  const endOfWeek = new Date(now);
+  endOfWeek.setDate(now.getDate() + daysUntilSaturday);
   endOfWeek.setHours(23, 59, 59, 999);
   
-  // Evento deve ser de hoje em diante E dentro da semana atual
+  // Evento deve ser de hoje até próximo sábado
   return eventDate >= now && eventDate <= endOfWeek;
+}
+
+// Verifica se o evento está no mês atual (após a semana)
+function isThisMonthAfterWeek(eventDate) {
+  if (!eventDate) return false;
+  
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  // Próximo sábado
+  const daysUntilSaturday = (6 - now.getDay() + 7) % 7;
+  const endOfWeek = new Date(now);
+  endOfWeek.setDate(now.getDate() + daysUntilSaturday);
+  endOfWeek.setHours(23, 59, 59, 999);
+  
+  // Último dia do mês atual
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  endOfMonth.setHours(23, 59, 59, 999);
+  
+  // Evento deve estar após a semana E dentro do mês atual
+  return eventDate > endOfWeek && eventDate <= endOfMonth;
 }
 
 // Aplica filtros avançados nos eventos
@@ -367,7 +387,7 @@ function filterAndSortEvents(events) {
   // Filtra apenas eventos de hoje em diante (exclui passados)
   const passedEvents = [];
   const futureEvents = eventsWithDate.filter(ev => {
-    if (!ev.parsedDate) return true; // Mantém eventos sem data
+    if (!ev.parsedDate) return true; // Mantém eventos sem data (vão para "afterThisWeek")
     const isFuture = ev.parsedDate >= now;
     if (!isFuture) {
       passedEvents.push({ name: ev.name, date: ev.date, parsed: ev.parsedDate.toLocaleDateString('pt-BR') });
@@ -375,9 +395,29 @@ function filterAndSortEvents(events) {
     return isFuture; // >= hoje às 00:00 (inclui hoje)
   });
   
-  // Separa em semana atual e posteriores
-  const thisWeek = futureEvents.filter(ev => ev.parsedDate && isThisWeek(ev.parsedDate));
-  const afterThisWeek = futureEvents.filter(ev => !ev.parsedDate || !isThisWeek(ev.parsedDate));
+  // Separa em 3 categorias:
+  // 1. Esta semana (hoje até próximo sábado)
+  // 2. Restante do mês (após sábado até fim do mês)
+  // 3. Próximo mês ou sem data (descartados da notificação)
+  
+  const thisWeek = [];
+  const thisMonthAfterWeek = [];
+  const nextMonthOrNoDate = [];
+  
+  for (const ev of futureEvents) {
+    if (!ev.parsedDate) {
+      nextMonthOrNoDate.push(ev); // Sem data = não envia
+      continue;
+    }
+    
+    if (isThisWeek(ev.parsedDate)) {
+      thisWeek.push(ev);
+    } else if (isThisMonthAfterWeek(ev.parsedDate)) {
+      thisMonthAfterWeek.push(ev);
+    } else {
+      nextMonthOrNoDate.push(ev); // Próximo mês = não envia
+    }
+  }
   
   // Ordena cada grupo por data
   const sortByDate = (a, b) => {
@@ -388,29 +428,52 @@ function filterAndSortEvents(events) {
   };
   
   thisWeek.sort(sortByDate);
-  afterThisWeek.sort(sortByDate);
+  thisMonthAfterWeek.sort(sortByDate);
   
   // Log de debug para verificar filtro
   const todayStr = now.toLocaleDateString('pt-BR');
-  console.log(`📊 Filtro de datas (hoje: ${todayStr}): ${events.length} total → ${futureEvents.length} futuros (${thisWeek.length} esta semana, ${afterThisWeek.length} após)`);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const endOfMonthStr = endOfMonth.toLocaleDateString('pt-BR');
   
-  if (passedEvents.length > 0) {
-    console.log(`   ⏮️ ${passedEvents.length} eventos passados excluídos:`);
-    passedEvents.slice(0, 5).forEach(ev => {
-      console.log(`      • ${ev.name} - ${ev.date} (parseado: ${ev.parsed})`);
+  console.log(`\n📊 Filtro de datas (hoje: ${todayStr} | fim do mês: ${endOfMonthStr}):`);
+  console.log(`   📥 Total de eventos recebidos: ${events.length}`);
+  console.log(`   🔍 Após filtros avançados: ${filtered.length}`);
+  console.log(`   ⏮️  Eventos passados (excluídos): ${passedEvents.length}`);
+  console.log(`   ⭐ Esta semana (hoje→sábado): ${thisWeek.length}`);
+  console.log(`   📅 Restante do mês (após sábado): ${thisMonthAfterWeek.length}`);
+  console.log(`   🚫 Próximo mês ou sem data (excluídos): ${nextMonthOrNoDate.length}`);
+  
+  if (passedEvents.length > 0 && passedEvents.length <= 10) {
+    console.log(`\n   ⏮️  Eventos passados excluídos:`);
+    passedEvents.forEach(ev => {
+      console.log(`      • ${ev.name} - ${ev.date} (${ev.parsed})`);
     });
-    if (passedEvents.length > 5) {
-      console.log(`      ... e mais ${passedEvents.length - 5} eventos`);
-    }
+  } else if (passedEvents.length > 10) {
+    console.log(`\n   ⏮️  ${passedEvents.length} eventos passados excluídos (mostrando primeiros 5):`);
+    passedEvents.slice(0, 5).forEach(ev => {
+      console.log(`      • ${ev.name} - ${ev.date} (${ev.parsed})`);
+    });
   }
   
   if (thisWeek.length > 0) {
     const firstDate = thisWeek[0].parsedDate?.toLocaleDateString('pt-BR');
     const lastDate = thisWeek[thisWeek.length - 1].parsedDate?.toLocaleDateString('pt-BR');
-    console.log(`   Esta semana: ${firstDate} até ${lastDate}`);
+    console.log(`\n   ⭐ Período desta semana: ${firstDate} até ${lastDate}`);
   }
   
-  return { thisWeek, afterThisWeek, all: [...thisWeek, ...afterThisWeek] };
+  if (thisMonthAfterWeek.length > 0) {
+    const firstDate = thisMonthAfterWeek[0].parsedDate?.toLocaleDateString('pt-BR');
+    const lastDate = thisMonthAfterWeek[thisMonthAfterWeek.length - 1].parsedDate?.toLocaleDateString('pt-BR');
+    console.log(`   📅 Período restante do mês: ${firstDate} até ${lastDate}`);
+  }
+  
+  console.log(`\n   📤 Total a ser enviado: ${thisWeek.length + thisMonthAfterWeek.length} eventos\n`);
+  
+  return { 
+    thisWeek, 
+    afterThisWeek: thisMonthAfterWeek, 
+    all: [...thisWeek, ...thisMonthAfterWeek] 
+  };
 }
 
 function normalizeEvents(events) {
@@ -509,31 +572,50 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
     return lines;
   };
 
-  // Bloco 1: Destaques da Semana
+  // Bloco 1: Destaques da Semana (Hoje até próximo Sábado)
   const thisWeekBlock = [];
   if (thisWeek.length > 0) {
+    // Calcula período da semana
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const daysUntilSaturday = (6 - now.getDay() + 7) % 7;
+    const endOfWeek = new Date(now);
+    endOfWeek.setDate(now.getDate() + daysUntilSaturday);
+    
+    const periodStart = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const periodEnd = endOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    
     thisWeekBlock.push('⭐ DESTAQUES DESTA SEMANA ⭐');
     thisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
     thisWeekBlock.push('');
-    thisWeekBlock.push('🎤 Shows e eventos SESC');
-    if (meta?.month) thisWeekBlock.push(`📅 Referência: ${normalizeText(meta.month)}`);
-    thisWeekBlock.push(`📆 Consultado em: ${formattedToday}`);
-    if (pdfUrl) thisWeekBlock.push(`🔗 PDF: ${pdfUrl}`);
+    thisWeekBlock.push(`🗓️ Período: ${periodStart} a ${periodEnd}`);
+    thisWeekBlock.push(`📆 Total: ${thisWeek.length} evento(s)`);
     thisWeekBlock.push('');
     thisWeekBlock.push(...renderEventsList(thisWeek));
     thisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
-  // Bloco 2: Próximos Eventos
+  // Bloco 2: Restante do Mês (Após sábado até fim do mês)
+  // Bloco 2: Restante do Mês (Após sábado até fim do mês)
   const afterThisWeekBlock = [];
   if (afterThisWeek.length > 0) {
-    afterThisWeekBlock.push('📅 PRÓXIMOS EVENTOS DO MÊS');
+    // Calcula período restante do mês
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const daysUntilSaturday = (6 - now.getDay() + 7) % 7;
+    const afterSaturday = new Date(now);
+    afterSaturday.setDate(now.getDate() + daysUntilSaturday + 1); // Domingo após o sábado
+    
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    const periodStart = afterSaturday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const periodEnd = endOfMonth.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    
+    afterThisWeekBlock.push('📅 RESTANTE DO MÊS');
     afterThisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
     afterThisWeekBlock.push('');
-    afterThisWeekBlock.push('🎤 Shows e eventos SESC');
-    if (meta?.month) afterThisWeekBlock.push(`📅 Referência: ${normalizeText(meta.month)}`);
-    afterThisWeekBlock.push(`📆 Consultado em: ${formattedToday}`);
-    if (pdfUrl) afterThisWeekBlock.push(`🔗 PDF: ${pdfUrl}`);
+    afterThisWeekBlock.push(`🗓️ Período: ${periodStart} a ${periodEnd}`);
+    afterThisWeekBlock.push(`📆 Total: ${afterThisWeek.length} evento(s)`);
     afterThisWeekBlock.push('');
     afterThisWeekBlock.push(...renderEventsList(afterThisWeek));
   }
@@ -870,8 +952,9 @@ async function main() {
     const { thisWeek, afterThisWeek, all } = filterAndSortEvents(result.payload.events);
     
     console.log(`🧾 Total de eventos extraídos: ${result.payload.events.length}`);
-    console.log(`⭐ Eventos desta semana: ${thisWeek.length}`);
-    console.log(`📅 Eventos futuros: ${afterThisWeek.length}`);
+    console.log(`⭐ Esta semana (hoje→sábado): ${thisWeek.length}`);
+    console.log(`📅 Restante do mês: ${afterThisWeek.length}`);
+    console.log(`📤 Total a enviar: ${all.length}`);
     
     // Salva eventos no banco de dados
     let newEventsCount = 0;
@@ -903,9 +986,9 @@ async function main() {
     if (result.ok) {
       const blocks = renderEventsTelegramFromJson(result.payload, pdfUrl);
       
-      // Envia bloco 1: Destaques da Semana
+      // Envia bloco 1: Destaques da Semana (Hoje até Sábado)
       if (blocks.hasThisWeek) {
-        console.log('📤 Enviando bloco 1: Destaques da Semana...');
+        console.log('📤 Enviando bloco 1: Destaques da Semana (hoje → sábado)...');
         await sendTelegramLongText({ 
           botInstance: bot, 
           chatId: TELEGRAM_CHAT_ID, 
@@ -914,9 +997,9 @@ async function main() {
         await sleep(1000); // Pausa entre blocos
       }
       
-      // Envia bloco 2: Próximos Eventos
+      // Envia bloco 2: Restante do Mês (Após Sábado até fim do mês)
       if (blocks.hasAfterThisWeek) {
-        console.log('📤 Enviando bloco 2: Próximos Eventos do Mês...');
+        console.log('📤 Enviando bloco 2: Restante do Mês (após sábado → fim do mês)...');
         await sendTelegramLongText({ 
           botInstance: bot, 
           chatId: TELEGRAM_CHAT_ID, 
