@@ -7,6 +7,7 @@ Bot automatizado que monitora e extrai informações sobre shows e eventos cultu
 
 ## 🎯 Funcionalidades
 
+### Extração e Notificação
 - ✅ Scraping automático da página oficial do SESC Em Cartaz
 - ✅ Download e processamento de PDFs da programação mensal
 - ✅ Análise inteligente com Google Gemini AI (modelo Flash)
@@ -15,6 +16,14 @@ Bot automatizado que monitora e extrai informações sobre shows e eventos cultu
 - ✅ Envio de notificações formatadas para canal/grupo do Telegram
 - ✅ Suporte para mensagens longas (split inteligente respeitando limites do Telegram)
 - ✅ Sistema de retry e tratamento de rate limits
+
+### Interface de Gerenciamento (Novo!)
+- 🎨 Interface web moderna e responsiva
+- ⚙️ Configuração visual de todas as variáveis
+- ▶️ Execução manual com um clique
+- 📊 Dashboard com status em tempo real
+- 📋 Visualização de logs com auto-refresh
+- 💾 Salvamento automático de configurações
 
 ## 📋 Pré-requisitos
 
@@ -51,10 +60,28 @@ const GEMINI_API_KEY = 'SUA_API_KEY_DO_GEMINI_AQUI';
 
 ## 🚀 Uso
 
-Execute o bot manualmente:
+### Modo GUI (Recomendado)
+
+Execute a interface web de gerenciamento:
 
 ```bash
-node index.js
+npm run gui
+```
+
+Acesse no navegador: **http://localhost:3000**
+
+A interface permite:
+- ⚙️ Configurar credenciais e parâmetros
+- ▶️ Executar o script manualmente
+- 📋 Visualizar logs em tempo real
+- 📊 Acompanhar status das execuções
+
+### Modo CLI (Linha de Comando)
+
+Execute o bot diretamente:
+
+```bash
+npm start
 ```
 
 O bot irá:
@@ -71,12 +98,16 @@ O bot irá:
   "axios": "^1.13.2",
   "cheerio": "^1.1.2",
   "node-telegram-bot-api": "^0.63.0",
-  "pdf-parse": "^2.4.5"
+  "pdf-parse": "^2.4.5",
+  "express": "^4.18.2",
+  "ejs": "^3.1.9",
+  "dotenv": "^16.4.1"
 }
 ```
 
 ## 🏗️ Arquitetura
 
+- **Web Interface:** Express.js + EJS para painel de controle
 - **Scraping:** Axios + Cheerio para extrair link do PDF
 - **IA:** Google Gemini Flash para análise semântica do PDF
 - **Mensageria:** node-telegram-bot-api para notificações
@@ -84,22 +115,29 @@ O bot irá:
 
 ## ⚠️ Limitações Conhecidas (Pre-Beta)
 
-- Credenciais hardcoded no código (será movido para .env)
-- Sem agendamento automático (requer cron externo)
+- Sem agendamento automático integrado (requer cron externo ou execução manual)
 - Logs básicos (melhorias planejadas)
 - Suporte apenas para eventos da Capital SP
 
 ## 🗺️ Roadmap
 
-- [ ] Migrar configurações para variáveis de ambiente (.env)
-- [ ] Adicionar sistema de agendamento interno
+- [ ] Sistema de agendamento interno (cron integrado)
 - [ ] Suporte para outras regiões do SESC
-- [ ] Interface web para configuração
 - [ ] Banco de dados para histórico de eventos
+- [ ] Notificações por email
+- [ ] API REST para integração externa
 - [ ] Testes automatizados
 - [ ] Docker containerization
 
 ## 📝 Notas de Versão
+
+### Pre-Beta 0.2.0 (Atual)
+- ✨ **NOVO:** Interface web de gerenciamento completa
+- ✨ Configuração visual de credenciais e parâmetros
+- ✨ Execução manual via GUI
+- ✨ Dashboard com status em tempo real
+- ✨ Visualização de logs com auto-refresh
+- 🔒 Sistema de variáveis de ambiente implementado
 
 ### Pre-Beta 0.1.0
 - Primeira versão funcional

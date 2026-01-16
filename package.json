@@ -1,10 +1,11 @@
 {
   "name": "sesc-alertas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
+    "gui": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,6 +17,8 @@
     "axios": "^1.13.2",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
+    "ejs": "^4.0.1",
+    "express": "^5.2.1",
     "node-telegram-bot-api": "^0.63.0",
     "pdf-parse": "^2.4.5"
   }

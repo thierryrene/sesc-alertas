@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SESC Alertas - Painel de Controle</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎭 SESC Alertas</h1>
+      <p class="subtitle">Painel de Gerenciamento e Execução</p>
+    </header>
+
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="label">Status:</span>
+        <span class="value <%= isRunning ? 'running' : 'idle' %>" id="status">
+          <%= isRunning ? '🔄 Executando...' : '✅ Ocioso' %>
+        </span>
+      </div>
+      <% if (lastExecution) { %>
+      <div class="status-item">
+        <span class="label">Última Execução:</span>
+        <span class="value">
+          <%= new Date(lastExecution.startTime).toLocaleString('pt-BR') %>
+          (<%= lastExecution.success ? '✅ Sucesso' : '❌ Falha' %>)
+        </span>
+      </div>
+      <% } %>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="config">⚙️ Configurações</button>
+      <button class="tab-btn" data-tab="execution">▶️ Execução</button>
+      <button class="tab-btn" data-tab="logs">📋 Logs</button>
+    </div>
+
+    <!-- Tab Configurações -->
+    <div class="tab-content active" id="config-tab">
+      <h2>Configurações</h2>
+      <form id="config-form">
+        <div class="form-group">
+          <label for="telegramToken">🤖 Telegram Bot Token:</label>
+          <input type="text" id="telegramToken" name="telegramToken" 
+                 value="<%= config.telegramToken %>" required>
+        </div>
+
+        <div class="form-group">
+          <label for="telegramChatId">💬 Telegram Chat ID:</label>
+          <input type="text" id="telegramChatId" name="telegramChatId" 
+                 value="<%= config.telegramChatId %>" required>
+        </div>
+
+        <div class="form-group">
+          <label for="geminiApiKey">🤖 Gemini API Key:</label>
+          <input type="password" id="geminiApiKey" name="geminiApiKey" 
+                 value="<%= config.geminiApiKey %>" required>
+          <button type="button" class="btn-small" onclick="togglePassword('geminiApiKey')">👁️ Mostrar</button>
+        </div>
+
+        <div class="form-group">
+          <label for="urlPagina">🔗 URL da Página SESC:</label>
+          <input type="url" id="urlPagina" name="urlPagina" 
+                 value="<%= config.urlPagina %>" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="maxRounds">🔄 Máximo de Rodadas:</label>
+            <input type="number" id="maxRounds" name="maxRounds" 
+                   value="<%= config.maxRounds %>" min="1" max="20" required>
+            <small>Número de tentativas de extração com IA</small>
+          </div>
+
+          <div class="form-group">
+            <label for="geminiModel">🧠 Modelo Gemini:</label>
+            <input type="text" id="geminiModel" name="geminiModel" 
+                   value="<%= config.geminiModel %>" required>
+            <small>Ex: gemini-3-flash-preview</small>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">💾 Salvar Configurações</button>
+      </form>
+    </div>
+
+    <!-- Tab Execução -->
+    <div class="tab-content" id="execution-tab">
+      <h2>Execução Manual</h2>
+      <div class="execution-panel">
+        <p>Execute o script de extração de eventos do SESC manualmente.</p>
+        <button id="execute-btn" class="btn btn-success" <%= isRunning ? 'disabled' : '' %>>
+          ▶️ Executar Agora
+        </button>
+        <div id="execution-status" class="execution-status"></div>
+      </div>
+
+      <div class="info-box">
+        <h3>ℹ️ Como funciona:</h3>
+        <ol>
+          <li>Busca o PDF mais recente no site do SESC</li>
+          <li>Processa o documento com Gemini AI</li>
+          <li>Extrai eventos da Capital de SP</li>
+          <li>Envia notificação formatada para o Telegram</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Tab Logs -->
+    <div class="tab-content" id="logs-tab">
+      <div class="logs-header">
+        <h2>Logs de Execução</h2>
+        <button id="clear-logs-btn" class="btn btn-small">🗑️ Limpar Logs</button>
+      </div>
+      <div class="logs-container" id="logs-container">
+        <% if (logs && logs.length > 0) { %>
+          <% logs.forEach(log => { %>
+            <div class="log-entry log-<%= log.type %>">
+              <span class="log-time"><%= new Date(log.time).toLocaleTimeString('pt-BR') %></span>
+              <span class="log-message"><%= log.message %></span>
+            </div>
+          <% }) %>
+        <% } else { %>
+          <p class="no-logs">Nenhum log disponível. Execute o script para ver os logs.</p>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>
