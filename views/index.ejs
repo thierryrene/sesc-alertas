@@ -88,9 +88,55 @@
 
     <!-- Tab Execução -->
     <div class="tab-content" id="execution-tab">
+      <h2>Seleção de Unidades SESC</h2>
+      
+      <div class="units-section">
+        <div class="units-header">
+          <p>Selecione quais unidades SESC você deseja monitorar:</p>
+          <button id="extract-units-btn" class="btn btn-secondary">
+            🔍 Extrair Unidades do PDF
+          </button>
+        </div>
+
+        <div id="units-loading" class="units-loading" style="display: none;">
+          <div class="spinner"></div>
+          <p>Analisando PDF e extraindo unidades... Aguarde...</p>
+        </div>
+
+        <div id="units-container" class="units-container">
+          <% if (availableUnits && availableUnits.length > 0) { %>
+            <div class="units-grid">
+              <% availableUnits.forEach(unit => { %>
+                <label class="unit-checkbox">
+                  <input type="checkbox" 
+                         name="unit" 
+                         value="<%= unit %>" 
+                         <%= selectedUnits.includes(unit) ? 'checked' : '' %>>
+                  <span><%= unit %></span>
+                </label>
+              <% }) %>
+            </div>
+            <div class="units-actions">
+              <button id="select-all-btn" class="btn btn-small">✅ Selecionar Todas</button>
+              <button id="deselect-all-btn" class="btn btn-small">❌ Desmarcar Todas</button>
+              <button id="save-units-btn" class="btn btn-primary">💾 Salvar Seleção</button>
+            </div>
+          <% } else { %>
+            <p class="no-units">Clique em "Extrair Unidades do PDF" para começar.</p>
+          <% } %>
+        </div>
+      </div>
+
+      <hr style="margin: 30px 0; border: 1px solid #e9ecef;">
+
       <h2>Execução Manual</h2>
       <div class="execution-panel">
         <p>Execute o script de extração de eventos do SESC manualmente.</p>
+        <% if (selectedUnits && selectedUnits.length > 0) { %>
+          <p class="selected-units-info">
+            <strong>📍 Unidades selecionadas:</strong> <%= selectedUnits.join(', ') %>
+          </p>
+        <% } %>
         <button id="execute-btn" class="btn btn-success" <%= isRunning ? 'disabled' : '' %>>
           ▶️ Executar Agora
         </button>
@@ -100,10 +146,11 @@
       <div class="info-box">
         <h3>ℹ️ Como funciona:</h3>
         <ol>
-          <li>Busca o PDF mais recente no site do SESC</li>
-          <li>Processa o documento com Gemini AI</li>
-          <li>Extrai eventos da Capital de SP</li>
-          <li>Envia notificação formatada para o Telegram</li>
+          <li>Extraia as unidades disponíveis do PDF</li>
+          <li>Selecione quais unidades deseja monitorar</li>
+          <li>Salve a seleção</li>
+          <li>Execute o script para extrair eventos apenas das unidades selecionadas</li>
+          <li>Receba notificação formatada no Telegram</li>
         </ol>
       </div>
     </div>

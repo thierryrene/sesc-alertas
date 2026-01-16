@@ -22,6 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 let isRunning = false;
 let lastExecution = null;
 let executionLogs = [];
+let availableUnits = [];
+let selectedUnits = [];
 
 // Carrega configurações do .env
 function getConfig() {
@@ -61,7 +63,9 @@ app.get('/', (req, res) => {
     config: getConfig(),
     isRunning,
     lastExecution,
-    logs: executionLogs
+    logs: executionLogs,
+    availableUnits,
+    selectedUnits
   });
 });
 
@@ -70,6 +74,85 @@ app.post('/config', (req, res) => {
   try {
     saveConfig(req.body);
     res.json({ success: true, message: 'Configurações salvas com sucesso!' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Extrair unidades do PDF
+app.post('/extract-units', async (req, res) => {
+  try {
+    // Importa as funções necessárias dinamicamente
+    const indexModule = await import('./index.js');
+    
+    const axios = (await import('axios')).default;
+    const cheerio = await import('cheerio');
+    
+    // Busca o PDF mais recente
+    const urlPagina = process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/';
+    const { data } = await axios.get(urlPagina);
+    const $ = cheerio.load(data);
+    const element = $('a[href$=".pdf"]').first();
+    const pdfLink = element.attr('href');
+    const pdfUrl = new URL(pdfLink, urlPagina).href;
+    
+    // Baixa o PDF
+    const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+    const pdfBase64 = Buffer.from(response.data).toString('base64');
+    
+    // Extrai unidades usando Gemini
+    const { GoogleGenerativeAI, SchemaType } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            units: {
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING }
+            }
+          }
+        }
+      }
+    });
+
+    const prompt = `Analise o PDF da programação do SESC e extraia TODAS as unidades/locais mencionados.
+
+IMPORTANTE:
+- Liste apenas os nomes das unidades SESC (ex: "Sesc Pompeia", "Sesc Ipiranga", etc)
+- Não inclua outras informações, apenas os nomes das unidades
+- Retorne em ordem alfabética
+- Formato: array de strings com os nomes das unidades`;
+
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: pdfBase64,
+          mimeType: "application/pdf",
+        },
+      },
+      prompt,
+    ]);
+
+    const text = result.response.text();
+    const parsed = JSON.parse(text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim());
+    availableUnits = parsed?.units || [];
+    
+    res.json({ success: true, units: availableUnits });
+  } catch (error) {
+    console.error('Erro ao extrair unidades:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Salvar unidades selecionadas
+app.post('/select-units', (req, res) => {
+  try {
+    selectedUnits = req.body.units || [];
+    res.json({ success: true, message: 'Unidades selecionadas salvas!' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -85,9 +168,15 @@ app.post('/execute', (req, res) => {
   executionLogs = [];
   const startTime = new Date();
 
+  // Passa as unidades selecionadas via variável de ambiente
+  const env = { 
+    ...process.env,
+    SELECTED_UNITS: selectedUnits.join(',')
+  };
+
   const child = spawn('node', ['index.js'], {
     cwd: __dirname,
-    env: process.env
+    env
   });
 
   child.stdout.on('data', (data) => {
@@ -124,7 +213,9 @@ app.get('/status', (req, res) => {
   res.json({
     isRunning,
     lastExecution,
-    logs: executionLogs.slice(-50) // Últimas 50 linhas
+    logs: executionLogs.slice(-50), // Últimas 50 linhas
+    availableUnits,
+    selectedUnits
   });
 });
 

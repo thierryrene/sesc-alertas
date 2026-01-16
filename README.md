@@ -11,15 +11,18 @@ Bot automatizado que monitora e extrai informações sobre shows e eventos cultu
 - ✅ Scraping automático da página oficial do SESC Em Cartaz
 - ✅ Download e processamento de PDFs da programação mensal
 - ✅ Análise inteligente com Google Gemini AI (modelo Flash)
+- ✅ **Seleção personalizada de unidades SESC** (Novo!)
 - ✅ Extração estruturada de eventos (nome, data, horário, local, preço, etc.)
 - ✅ Deduplicação automática de eventos
 - ✅ Envio de notificações formatadas para canal/grupo do Telegram
 - ✅ Suporte para mensagens longas (split inteligente respeitando limites do Telegram)
 - ✅ Sistema de retry e tratamento de rate limits
 
-### Interface de Gerenciamento (Novo!)
+### Interface de Gerenciamento
 - 🎨 Interface web moderna e responsiva
 - ⚙️ Configuração visual de todas as variáveis
+- 🏢 **Extração e seleção de unidades SESC** (Novo!)
+- ✅ Seleção múltipla de unidades para monitoramento
 - ▶️ Execução manual com um clique
 - 📊 Dashboard com status em tempo real
 - 📋 Visualização de logs com auto-refresh
@@ -72,6 +75,7 @@ Acesse no navegador: **http://localhost:3000**
 
 A interface permite:
 - ⚙️ Configurar credenciais e parâmetros
+- 🏢 Extrair e selecionar unidades SESC para monitoramento
 - ▶️ Executar o script manualmente
 - 📋 Visualizar logs em tempo real
 - 📊 Acompanhar status das execuções
@@ -117,22 +121,29 @@ O bot irá:
 
 - Sem agendamento automático integrado (requer cron externo ou execução manual)
 - Logs básicos (melhorias planejadas)
-- Suporte apenas para eventos da Capital SP
 
 ## 🗺️ Roadmap
 
 - [ ] Sistema de agendamento interno (cron integrado)
-- [ ] Suporte para outras regiões do SESC
-- [ ] Banco de dados para histórico de eventos
 - [ ] Notificações por email
 - [ ] API REST para integração externa
+- [ ] Filtros avançados (categoria, preço, idade)
+- [ ] Banco de dados para histórico de eventos
 - [ ] Testes automatizados
 - [ ] Docker containerization
 
 ## 📝 Notas de Versão
 
-### Pre-Beta 0.2.0 (Atual)
-- ✨ **NOVO:** Interface web de gerenciamento completa
+### Pre-Beta 0.3.0 (Atual)
+- ✨ **NOVO:** Sistema de seleção de unidades SESC
+- ✨ Extração automática de todas as unidades do PDF
+- ✨ Interface para selecionar quais unidades monitorar
+- ✨ Filtragem de eventos por unidades selecionadas
+- 🎯 Maior flexibilidade no monitoramento
+- 📍 Suporte para qualquer unidade SESC (não apenas Capital)
+
+### Pre-Beta 0.2.0
+- ✨ Interface web de gerenciamento completa
 - ✨ Configuração visual de credenciais e parâmetros
 - ✨ Execução manual via GUI
 - ✨ Dashboard com status em tempo real
