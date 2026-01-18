@@ -597,7 +597,12 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
       const list = byUnit.get(unit);
       for (const ev of list) {
         const header = `• 🎫 ${ev.name}`;
-        const when = [ev.date ? `🗓️ ${ev.date}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
+        let dateStr = ev.date;
+        if (ev.parsedDate) {
+          const weekday = ev.parsedDate.toLocaleDateString('pt-BR', { weekday: 'long' });
+          dateStr += ` (${weekday})`;
+        }
+        const when = [dateStr ? `🗓️ ${dateStr}` : null, ev.time ? `⏰ ${ev.time}` : null].filter(Boolean).join(' · ');
         const tags = [
           ev.category ? `🏷️ ${ev.category}` : null,
           ev.price ? `💳 ${ev.price}` : null,
