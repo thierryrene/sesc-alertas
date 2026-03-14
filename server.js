@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { spawn } from 'child_process';
 import fs from 'fs';
-import scheduler from './scheduler.js';
+
 import database from './database.js';
 
 dotenv.config();
@@ -36,8 +36,7 @@ function getConfig() {
     urlPagina: process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/',
     maxRounds: process.env.MAX_ROUNDS || '8',
     geminiModel: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
-    cronSchedule: process.env.CRON_SCHEDULE || '0 8 * * *',
-    schedulerEnabled: process.env.SCHEDULER_ENABLED === 'true',
+
     filterMinPrice: process.env.FILTER_MIN_PRICE || '0',
     filterMaxPrice: process.env.FILTER_MAX_PRICE || '999999',
     filterCategories: process.env.FILTER_CATEGORIES || '',
@@ -60,9 +59,6 @@ URL_PAGINA=${config.urlPagina}
 MAX_ROUNDS=${config.maxRounds}
 GEMINI_MODEL=${config.geminiModel}
 
-# Scheduler Configuration
-CRON_SCHEDULE=${config.cronSchedule || '0 8 * * *'}
-SCHEDULER_ENABLED=${config.schedulerEnabled || 'false'}
 
 # Filters Configuration
 FILTER_MIN_PRICE=${config.filterMinPrice || '0'}
@@ -80,7 +76,7 @@ FILTER_LOCATIONS=${config.filterLocations || ''}
 // Rota principal
 app.get('/', (req, res) => {
   const stats = database.getStats();
-  const schedulerStatus = scheduler.getStatus();
+
   
   res.render('index', {
     config: getConfig(),
@@ -89,9 +85,7 @@ app.get('/', (req, res) => {
     logs: executionLogs,
     availableUnits,
     selectedUnits,
-    stats,
-    schedulerStatus,
-    schedulerPresets: scheduler.listPresets()
+    stats
   });
 });
 
@@ -251,47 +245,7 @@ app.post('/clear-logs', (req, res) => {
   res.json({ success: true, message: 'Logs limpos!' });
 });
 
-// Rotas do Scheduler
-app.post('/scheduler/start', (req, res) => {
-  const cronExpression = req.body.cronExpression || process.env.CRON_SCHEDULE;
-  const result = scheduler.start(cronExpression);
-  
-  if (result.success) {
-    // Atualiza .env
-    const config = getConfig();
-    config.schedulerEnabled = 'true';
-    config.cronSchedule = cronExpression;
-    saveConfig(config);
-  }
-  
-  res.json(result);
-});
 
-app.post('/scheduler/stop', (req, res) => {
-  const result = scheduler.stop();
-  
-  if (result.success) {
-    // Atualiza .env
-    const config = getConfig();
-    config.schedulerEnabled = 'false';
-    saveConfig(config);
-  }
-  
-  res.json(result);
-});
-
-app.get('/scheduler/status', (req, res) => {
-  res.json(scheduler.getStatus());
-});
-
-app.post('/scheduler/run-now', async (req, res) => {
-  try {
-    const result = await scheduler.runNow();
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 // Rotas do Banco de Dados
 app.get('/database/stats', (req, res) => {
@@ -321,17 +275,7 @@ app.post('/database/clean', (req, res) => {
   res.json({ success: true, message: `${deletedCount} eventos antigos removidos`, deletedCount });
 });
 
-// Inicia o scheduler se estiver habilitado no .env
-if (process.env.SCHEDULER_ENABLED === 'true') {
-  console.log('🕐 Iniciando agendamento automático...');
-  const result = scheduler.start();
-  if (result.success) {
-    console.log(`✅ Scheduler iniciado: ${result.schedule}`);
-    console.log(`📅 Próxima execução: ${result.nextExecution?.toLocaleString('pt-BR')}`);
-  } else {
-    console.error(`❌ Erro ao iniciar scheduler: ${result.message}`);
-  }
-}
+
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 SESC Alertas GUI rodando em http://localhost:${PORT}`);
