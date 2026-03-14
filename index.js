@@ -60,6 +60,28 @@ function formatSummaryForTelegram(summary) {
     .trim();
 }
 
+function getEventEmoji(ev) {
+  const cat = (ev.category || '').toLowerCase();
+  const desc = (ev.description || '').toLowerCase();
+  const name = (ev.name || '').toLowerCase();
+  const classification = (ev.classification || ev.age || '').toLowerCase();
+  
+  const combined = `${cat} ${desc} ${name} ${classification}`;
+  
+  if (combined.includes('idoso') || combined.includes('terceira idade') || combined.includes('60+') || combined.includes('aposentado')) return '👴';
+  if (combined.includes('infantil') || combined.includes('criança') || combined.includes('bebê') || classification === 'livre') return '👶';
+  if (combined.includes('oficina') || combined.includes('curso') || combined.includes('workshop')) return '🛠️';
+  if (combined.includes('teatro') || combined.includes('espetáculo') || combined.includes('cênicas')) return '🎭';
+  if (combined.includes('esporte') || combined.includes('ginástica') || combined.includes('recreação') || combined.includes('torneio')) return '⚽';
+  if (combined.includes('dança') || combined.includes('ballet')) return '💃';
+  if (combined.includes('exposição') || combined.includes('artes visuais') || combined.includes('galeria')) return '🖼️';
+  if (combined.includes('cinema') || combined.includes('filme') || combined.includes('exibição')) return '🎬';
+  if (combined.includes('show') || combined.includes('música') || combined.includes('concerto')) return '🎤';
+  if (combined.includes('literatura') || combined.includes('livro') || combined.includes('leitura') || combined.includes('palestra')) return '📚';
+  
+  return '🎫'; // Default
+}
+
 function splitForTelegram(text, maxLen = 3900) {
   const fullText = String(text ?? '').replace(/\r\n/g, '\n').trim();
   if (!fullText) return [];
@@ -569,12 +591,17 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
       category: normalizeText(ev.category),
       price: normalizeText(ev.price),
       age: normalizeText(ev.age),
-      description: normalizeText(ev.description)
+      description: normalizeText(ev.description),
+      isNew: ev.isNew
     }))
     .filter((ev) => ev.unit && ev.name && (ev.date || ev.time));
 
-  // Filtra e ordena eventos
-  const { thisWeek, afterThisWeek } = filterAndSortEvents(onlyValid);
+  // Opcional: só enviar notificação do que é "novo" para evitar spam
+  // (Pode ser configurável futuramente, aqui deixaremos apenas os novos)
+  const onlyNew = onlyValid.filter((ev) => ev.isNew);
+
+  // Filtra e ordena eventos (sobre a lista de novos)
+  const { thisWeek, afterThisWeek } = filterAndSortEvents(onlyNew);
   
   const today = new Date();
   const formattedToday = today.toLocaleDateString('pt-BR');
@@ -593,10 +620,13 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
     const units = Array.from(byUnit.keys()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
     for (const unit of units) {
-      lines.push(`🏛️ ${unit}`);
+      lines.push(''); // Afasta a unidade dos eventos de cima
+      lines.push(`🏛️ <b>${unit}</b>`);
+      lines.push(''); // Afasta a leitura dos eventos novos de baixo
       const list = byUnit.get(unit);
       for (const ev of list) {
-        const header = `• 🎫 ${ev.name}`;
+        const icon = getEventEmoji(ev);
+        const header = `• <b>🔥 NOVIDADE:</b> ${icon} ${ev.name}`;
         let dateStr = ev.date;
         if (ev.parsedDate) {
           const weekday = ev.parsedDate.toLocaleDateString('pt-BR', { weekday: 'long' });
@@ -633,11 +663,11 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
     const periodStart = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const periodEnd = endOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     
-    thisWeekBlock.push('⭐ DESTAQUES DESTA SEMANA ⭐');
+    thisWeekBlock.push('<b>⭐ DESTAQUES DESTA SEMANA (NOVOS) ⭐</b>');
     thisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
     thisWeekBlock.push('');
-    thisWeekBlock.push(`🗓️ Período: ${periodStart} a ${periodEnd}`);
-    thisWeekBlock.push(`📆 Total: ${thisWeek.length} evento(s)`);
+    thisWeekBlock.push(`🗓️ <b>Período:</b> ${periodStart} a ${periodEnd}`);
+    thisWeekBlock.push(`📆 <b>Total Novos:</b> ${thisWeek.length} evento(s)`);
     thisWeekBlock.push('');
     thisWeekBlock.push(...renderEventsList(thisWeek));
     thisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -659,11 +689,11 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
     const periodStart = afterSaturday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const periodEnd = endOfMonth.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     
-    afterThisWeekBlock.push('📅 RESTANTE DO MÊS');
+    afterThisWeekBlock.push('<b>📅 RESTANTE DO MÊS (NOVOS)</b>');
     afterThisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
     afterThisWeekBlock.push('');
-    afterThisWeekBlock.push(`🗓️ Período: ${periodStart} a ${periodEnd}`);
-    afterThisWeekBlock.push(`📆 Total: ${afterThisWeek.length} evento(s)`);
+    afterThisWeekBlock.push(`🗓️ <b>Período:</b> ${periodStart} a ${periodEnd}`);
+    afterThisWeekBlock.push(`📆 <b>Total Novos:</b> ${afterThisWeek.length} evento(s)`);
     afterThisWeekBlock.push('');
     afterThisWeekBlock.push(...renderEventsList(afterThisWeek));
   }
@@ -696,7 +726,7 @@ async function sendTelegramLongText({ botInstance, chatId, text }) {
       attempt += 1;
       try {
         console.log(`📨 Enviando ${i + 1}/${chunks.length} (${payload.length} chars)...`);
-        await botInstance.sendMessage(chatId, payload);
+        await botInstance.sendMessage(chatId, payload, { parse_mode: 'HTML' });
         break;
       } catch (err) {
         const description = err?.response?.body?.description || err?.message || '';
@@ -709,7 +739,7 @@ async function sendTelegramLongText({ botInstance, chatId, text }) {
           // envia as subpartes e segue
           for (let s = 0; s < smaller.length; s += 1) {
             console.log(`📨 Subenvio ${i + 1}.${s + 1}/${i + 1}.${smaller.length} (${smaller[s].length} chars)...`);
-            await botInstance.sendMessage(chatId, smaller[s]);
+            await botInstance.sendMessage(chatId, smaller[s], { parse_mode: 'HTML' });
             await sleep(350);
           }
           break;
@@ -989,11 +1019,26 @@ async function main() {
     console.log(`🔗 Link: ${pdfUrl}`);
     console.log(`📅 Data da consulta: ${new Date().toLocaleString('pt-BR')}\n`);
 
-    console.log('Analisando o PDF com Gemini API...');
-    const result = await analyzeAllWithGemini(pdfUrl, { 
-      maxRounds: 8,
-      selectedUnits 
-    });
+    console.log('Verificando cache do PDF no banco de dados...');
+    let result;
+    const cachedData = database.getPdfCache(pdfUrl, selectedUnits);
+
+    if (cachedData) {
+      console.log('✅ PDF já processado anteriormente! Carregando do cache...');
+      result = { ok: true, payload: cachedData };
+    } else {
+      console.log('Analisando novo PDF com Gemini API...');
+      result = await analyzeAllWithGemini(pdfUrl, { 
+        maxRounds: parseInt(process.env.MAX_ROUNDS || '8'),
+        selectedUnits 
+      });
+      
+      // Salva no banco de dados se houver sucesso
+      if (result.ok && result.payload?.events?.length > 0) {
+        console.log('💾 Salvando análise do PDF no cache...');
+        database.savePdfCache(pdfUrl, result.payload, selectedUnits);
+      }
+    }
     console.log('Organizando conteúdo...');
 
     // Filtra e ordena eventos
@@ -1018,6 +1063,7 @@ async function main() {
         description: event.description
       };
       const result = database.saveEvent(eventData);
+      event.isNew = result.isNew;
       if (result.isNew) newEventsCount++;
     }
     

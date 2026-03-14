@@ -48,10 +48,20 @@ function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS pdf_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pdf_url TEXT NOT NULL,
+      units_hash TEXT NOT NULL,
+      parsed_data TEXT NOT NULL,
+      processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(pdf_url, units_hash)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_events_fingerprint ON events(fingerprint);
     CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
     CREATE INDEX IF NOT EXISTS idx_events_location ON events(location);
     CREATE INDEX IF NOT EXISTS idx_executions_started ON executions(started_at);
+    CREATE INDEX IF NOT EXISTS idx_pdf_cache_url ON pdf_cache(pdf_url);
   `);
 }
 
@@ -226,6 +236,34 @@ function getStats() {
   };
 }
 
+// Busca versão em cache do PDF
+function getPdfCache(pdfUrl, units = []) {
+  const unitsHash = crypto.createHash('md5').update(units.slice().sort().join(',')).digest('hex');
+  const stmt = db.prepare('SELECT parsed_data FROM pdf_cache WHERE pdf_url = ? AND units_hash = ?');
+  const result = stmt.get(pdfUrl, unitsHash);
+  if (result) {
+    try {
+      return JSON.parse(result.parsed_data);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// Salva versão em cache do PDF
+function savePdfCache(pdfUrl, parsedData, units = []) {
+  const unitsHash = crypto.createHash('md5').update(units.slice().sort().join(',')).digest('hex');
+  const stmt = db.prepare(`
+    INSERT INTO pdf_cache (pdf_url, units_hash, parsed_data) 
+    VALUES (?, ?, ?)
+    ON CONFLICT(pdf_url, units_hash) DO UPDATE SET
+      parsed_data = excluded.parsed_data,
+      processed_at = CURRENT_TIMESTAMP
+  `);
+  stmt.run(pdfUrl, unitsHash, JSON.stringify(parsedData));
+}
+
 // Inicializa o banco ao carregar o módulo
 initDatabase();
 
@@ -242,5 +280,7 @@ export default {
   getActiveFilters,
   cleanOldEvents,
   getStats,
-  initDatabase
+  initDatabase,
+  getPdfCache,
+  savePdfCache
 };
