@@ -35,11 +35,6 @@ Sistema integrado com SQLite (`better-sqlite3`) que garante:
 *   **Integridade**: Evita envio de notificações duplicadas.
 *   **Auditoria**: Log de todas as execuções do agendador.
 
-#### 3. ⏰ Agendamento Automático (Scheduler)
-Integrado com `node-cron`, permite que o bot rode autonomamente em intervalos definidos.
-*   **Presets**: Configurações rápidas (diário, horário comercial, a cada hora).
-*   **Controle**: Start/Stop/Run-Now via API ou Interface Web.
-*   **Resiliência**: Recupera-se automaticamente em caso de falhas na API do Gemini.
 
 #### 4. 🔍 Filtros Avançados
 Configuráveis via arquivo `.env` para personalizar as notificações:
@@ -51,7 +46,7 @@ Configuráveis via arquivo `.env` para personalizar as notificações:
 #### 5. 📊 Interface Web & API
 Dashboard acessível em `http://localhost:3000` para:
 *   Visualizar logs em tempo real.
-*   Gerenciar configurações e agendamentos.
+*   Gerenciar configurações.
 *   Consultar estatísticas do banco de dados.
 *   Endpoints REST disponíveis para integrações (`/scheduler/*`, `/database/*`).
 
@@ -77,9 +72,6 @@ TELEGRAM_BOT_TOKEN=seu_token
 TELEGRAM_CHAT_ID=seu_chat_id
 GEMINI_API_KEY=sua_api_key
 
-# Agendamento
-SCHEDULER_ENABLED=true
-CRON_SCHEDULE=0 8 * * *  # Todo dia às 08:00
 
 # Filtros (Opcionais)
 FILTER_MAX_PRICE=40
@@ -105,7 +97,7 @@ npm start
 
 *   `index.js`: Core da aplicação (Orquestrador).
 *   `database.js`: Camada de acesso a dados (SQLite).
-*   `scheduler.js`: Gerenciador de tarefas cron.
+
 *   `server.js`: Servidor Web (Express) e API.
 *   `views/`: Templates EJS para a interface.
 *   `sesc-bot.db`: Arquivo do banco de dados (gerado automaticamente).

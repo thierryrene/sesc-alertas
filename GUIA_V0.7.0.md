@@ -4,8 +4,7 @@
 
 Esta versão traz 3 grandes funcionalidades:
 1. **Banco de Dados SQLite** - Histórico e deduplicação de eventos
-2. **Agendamento Automático** - Execução periódica com node-cron
-3. **Filtros Avançados** - Filtre por categoria, preço, idade e local
+2. **Filtros Avançados** - Filtre por categoria, preço, idade e local
 
 ---
 
@@ -53,67 +52,6 @@ Remove eventos não vistos há X dias
 
 ---
 
-## ⏰ Agendamento Automático
-
-### Configuração no .env
-
-```env
-# Habilitar agendamento
-SCHEDULER_ENABLED=true
-
-# Expressão cron (quando executar)
-CRON_SCHEDULE=0 8 * * *
-```
-
-### Expressões Cron
-
-Formato: `minuto hora dia mês dia-da-semana`
-
-**Exemplos:**
-- `0 8 * * *` - Todo dia às 8h
-- `0 */6 * * *` - A cada 6 horas
-- `0 8,20 * * *` - Às 8h e 20h
-- `0 9 * * 1-5` - Dias úteis às 9h
-- `0 9 * * 1` - Toda segunda às 9h
-- `0 9 1 * *` - Dia 1 de cada mês às 9h
-
-### Presets Disponíveis
-
-O scheduler vem com 10 presets prontos:
-- `every-hour` - A cada hora
-- `every-3-hours` - A cada 3 horas
-- `every-6-hours` - A cada 6 horas
-- `daily-8am` - Todo dia às 8h
-- `daily-noon` - Todo dia às 12h
-- `daily-6pm` - Todo dia às 18h
-- `twice-daily` - 2x ao dia (8h e 20h)
-- `weekdays-9am` - Dias úteis às 9h
-- `monday-9am` - Toda segunda às 9h
-- `first-day-month` - Dia 1 do mês às 9h
-
-### API do Scheduler (via interface web)
-
-**Iniciar agendamento:**
-```
-POST /scheduler/start
-Body: { "cronExpression": "0 8 * * *" } (opcional)
-```
-
-**Parar agendamento:**
-```
-POST /scheduler/stop
-```
-
-**Status do agendamento:**
-```
-GET /scheduler/status
-Retorna: isRunning, schedule, lastExecution, nextExecution, executionCount
-```
-
-**Executar agora (manual):**
-```
-POST /scheduler/run-now
-```
 
 ---
 
@@ -166,12 +104,6 @@ Acesse: **http://localhost:3000**
 1. **Dashboard**
    - Total de eventos no banco
    - Estatísticas de execuções
-   - Status do scheduler
-
-2. **Controles do Scheduler**
-   - Iniciar/Parar agendamento
-   - Ver próxima execução
-   - Histórico de execuções
 
 3. **Configuração de Filtros**
    - Formulário visual para configurar filtros
@@ -188,8 +120,7 @@ Acesse: **http://localhost:3000**
 ### Caso 1: Monitoramento diário de eventos gratuitos
 
 ```env
-SCHEDULER_ENABLED=true
-CRON_SCHEDULE=0 8 * * *
+
 FILTER_MIN_PRICE=0
 FILTER_MAX_PRICE=0
 SELECTED_UNITS=Sesc Pompeia,Sesc Vila Mariana
@@ -198,8 +129,7 @@ SELECTED_UNITS=Sesc Pompeia,Sesc Vila Mariana
 ### Caso 2: Alertas de shows 2x ao dia
 
 ```env
-SCHEDULER_ENABLED=true
-CRON_SCHEDULE=0 8,20 * * *
+
 FILTER_CATEGORIES=show,música
 FILTER_MIN_PRICE=0
 FILTER_MAX_PRICE=100
@@ -208,8 +138,7 @@ FILTER_MAX_PRICE=100
 ### Caso 3: Eventos para crianças apenas dias úteis
 
 ```env
-SCHEDULER_ENABLED=true
-CRON_SCHEDULE=0 9 * * 1-5
+
 FILTER_MIN_AGE=0
 FILTER_MAX_PRICE=50
 FILTER_CATEGORIES=infantil,teatro,oficina
@@ -226,10 +155,7 @@ npm start
 # Banco será recriado automaticamente
 ```
 
-### Scheduler não inicia?
-1. Verifique a expressão cron: https://crontab.guru
-2. Confira os logs na interface web
-3. Verifique se `SCHEDULER_ENABLED=true`
+
 
 ### Filtros não funcionam?
 1. Certifique-se de que os valores no .env estão corretos
