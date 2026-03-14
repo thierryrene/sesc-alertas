@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SESC Alertas — Programação Cultural na Palma da Mão</title>
+  <meta name="description" content="Receba no Telegram a programação cultural do SESC SP filtrada e organizada automaticamente. Alertas diários e semanais com IA." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              50: '#f0fdf9',
+              100: '#ccfbef',
+              200: '#99f6e0',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+            }
+          },
+          animation: {
+            'fade-up': 'fadeUp 0.7s ease both',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeUp: {
+              '0%': { opacity: '0', transform: 'translateY(24px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-12px)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #030712; }
+    .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+    .glow { box-shadow: 0 0 40px rgba(20, 184, 166, 0.2); }
+    .glow-sm { box-shadow: 0 0 20px rgba(20, 184, 166, 0.15); }
+    .text-gradient { background: linear-gradient(135deg, #5eead4 0%, #14b8a6 40%, #0d9488 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .step-line::after { content: ''; position: absolute; top: 50%; right: -50%; width: 100%; height: 2px; background: linear-gradient(90deg, rgba(20,184,166,0.5), transparent); }
+    @media (max-width: 768px) { .step-line::after { display: none; } }
+    .notification-card { animation: float 6s ease-in-out infinite; }
+    .notification-card:nth-child(2) { animation-delay: -2s; }
+    .notification-card:nth-child(3) { animation-delay: -4s; }
+  </style>
+</head>
+<body class="font-sans text-gray-100 antialiased overflow-x-hidden">
+
+  <!-- NAVBAR -->
+  <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" id="navbar">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🎭</span>
+        <span class="font-bold text-lg tracking-tight">SESC <span class="text-brand-400">Alertas</span></span>
+      </div>
+      <div class="hidden md:flex items-center gap-8 text-sm text-gray-400">
+        <a href="#como-funciona" class="hover:text-brand-400 transition-colors">Como Funciona</a>
+        <a href="#features" class="hover:text-brand-400 transition-colors">Features</a>
+        <a href="#alertas" class="hover:text-brand-400 transition-colors">Alertas</a>
+        <a href="#acesso" class="hover:text-brand-400 transition-colors">Como Acessar</a>
+      </div>
+      <a href="https://t.me/sescalertas" target="_blank" rel="noopener"
+         class="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold px-4 py-2 rounded-full transition-all duration-200 glow-sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.288c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.085 14.08l-2.95-.924c-.641-.203-.654-.641.136-.951l11.527-4.447c.535-.194 1.003.131.764.49z"/></svg>
+        Acessar no Telegram
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="relative min-h-screen flex items-center justify-center pt-20 pb-16 overflow-hidden">
+    <!-- BG decorative glows -->
+    <div class="absolute top-20 left-1/4 w-96 h-96 bg-brand-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-20 right-1/4 w-80 h-80 bg-brand-800/20 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="relative max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
+      <!-- Texto -->
+      <div>
+        <div class="inline-flex items-center gap-2 bg-brand-900/60 border border-brand-700/50 text-brand-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
+          <span class="w-1.5 h-1.5 bg-brand-400 rounded-full animate-pulse-slow"></span>
+          Projeto open-source · Gratuito para sempre
+        </div>
+
+        <h1 class="text-5xl lg:text-6xl font-black leading-tight mb-6">
+          A programação do<br/>
+          <span class="text-gradient">SESC SP</span><br/>
+          direto no Telegram
+        </h1>
+
+        <p class="text-lg text-gray-400 leading-relaxed mb-8 max-w-lg">
+          Um bot que lê o PDF oficial do SESC, extrai todos os eventos com <strong class="text-white">Inteligência Artificial</strong> e te envia alertas organizados diariamente — sem precisar procurar nada.
+        </p>
+
+        <div class="flex flex-wrap gap-4 mb-12">
+          <a href="https://t.me/sescalertas" target="_blank" rel="noopener"
+             class="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white font-bold px-6 py-3 rounded-xl transition-all duration-200 glow text-base">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.288c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.085 14.08l-2.95-.924c-.641-.203-.654-.641.136-.951l11.527-4.447c.535-.194 1.003.131.764.49z"/></svg>
+            Receber Alertas
+          </a>
+          <a href="#como-funciona"
+             class="flex items-center gap-2 glass text-gray-300 hover:text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 text-base">
+            Saiba mais
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </a>
+        </div>
+
+        <!-- Stats -->
+        <div class="flex flex-wrap gap-6">
+          <div>
+            <div class="text-3xl font-black text-gradient" id="counter-events">0</div>
+            <div class="text-sm text-gray-500 mt-1">eventos monitorados</div>
+          </div>
+          <div class="w-px bg-gray-800"></div>
+          <div>
+            <div class="text-3xl font-black text-white">24×</div>
+            <div class="text-sm text-gray-500 mt-1">unidades SESC SP</div>
+          </div>
+          <div class="w-px bg-gray-800"></div>
+          <div>
+            <div class="text-3xl font-black text-white">100%</div>
+            <div class="text-sm text-gray-500 mt-1">gratuito</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards flutuantes simulando notificações Telegram -->
+      <div class="relative hidden lg:flex flex-col gap-4 items-end">
+        <div class="notification-card glass rounded-2xl p-5 w-80 glow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 bg-brand-700 rounded-full flex items-center justify-center text-lg">🎭</div>
+            <div>
+              <div class="text-xs font-bold text-brand-400">SESC Alertas</div>
+              <div class="text-xs text-gray-500">Hoje, 10:00</div>
+            </div>
+          </div>
+          <div class="text-sm font-bold text-white mb-1">🔥 HOJE NO SESC</div>
+          <div class="text-xs text-gray-400 leading-relaxed">
+            🏛️ <b>Sesc Pompeia</b><br/>
+            • 🎤 Noite de Jazz — Quarteto SP<br/>
+            &nbsp;&nbsp;🗓️ 14/03 · ⏰ 20h · 💳 R$ 20
+          </div>
+        </div>
+
+        <div class="notification-card glass rounded-2xl p-5 w-72 mr-8 glow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 bg-brand-700 rounded-full flex items-center justify-center text-lg">🎭</div>
+            <div>
+              <div class="text-xs font-bold text-brand-400">SESC Alertas</div>
+              <div class="text-xs text-gray-500">Dom, 10:00</div>
+            </div>
+          </div>
+          <div class="text-sm font-bold text-white mb-1">🌟 PROGRAMAÇÃO DA SEMANA</div>
+          <div class="text-xs text-gray-400 leading-relaxed">
+            🏛️ <b>Sesc Vila Mariana</b><br/>
+            • 👶 Teatro Infantil — A Turma<br/>
+            &nbsp;&nbsp;🗓️ 15/03 · ⏰ 15h · 💳 Grátis
+          </div>
+        </div>
+
+        <div class="notification-card glass rounded-2xl p-5 w-80 glow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 bg-brand-700 rounded-full flex items-center justify-center text-lg">🎭</div>
+            <div>
+              <div class="text-xs font-bold text-brand-400">SESC Alertas</div>
+              <div class="text-xs text-gray-500">Seg, 10:00</div>
+            </div>
+          </div>
+          <div class="text-sm font-bold text-white mb-1">☀️ ATIVIDADES DE HOJE</div>
+          <div class="text-xs text-gray-400 leading-relaxed">
+            🏛️ <b>Sesc Consolação</b><br/>
+            • 🛠️ Oficina de Cerâmica<br/>
+            &nbsp;&nbsp;🗓️ 16/03 · ⏰ 14h · 💳 R$ 10
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMO FUNCIONA -->
+  <section id="como-funciona" class="py-24">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16 reveal">
+        <div class="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-3">Transparência Total</div>
+        <h2 class="text-4xl lg:text-5xl font-black mb-4">Como funciona?</h2>
+        <p class="text-gray-400 text-lg max-w-xl mx-auto">Tudo automático, do PDF oficial do SESC até a mensagem no seu celular.</p>
+      </div>
+
+      <div class="grid md:grid-cols-4 gap-6">
+        <!-- Step 1 -->
+        <div class="reveal relative glass rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform duration-300">
+          <div class="w-14 h-14 bg-brand-900/80 border border-brand-700/50 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">📄</div>
+          <div class="text-xs text-brand-400 font-bold uppercase tracking-wider mb-2">Passo 1</div>
+          <h3 class="font-bold text-white mb-2">Detecta o PDF</h3>
+          <p class="text-sm text-gray-400">Todo dia verifica se o SESC publicou um novo PDF de programação no site oficial.</p>
+        </div>
+        <!-- Step 2 -->
+        <div class="reveal relative glass rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform duration-300" style="transition-delay:0.1s">
+          <div class="w-14 h-14 bg-brand-900/80 border border-brand-700/50 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">🤖</div>
+          <div class="text-xs text-brand-400 font-bold uppercase tracking-wider mb-2">Passo 2</div>
+          <h3 class="font-bold text-white mb-2">IA Extrai Tudo</h3>
+          <p class="text-sm text-gray-400">O Gemini lê o PDF completo e extrai 100% dos eventos: shows, teatro, esportes, oficinas e mais.</p>
+        </div>
+        <!-- Step 3 -->
+        <div class="reveal relative glass rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform duration-300" style="transition-delay:0.2s">
+          <div class="w-14 h-14 bg-brand-900/80 border border-brand-700/50 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">🗄️</div>
+          <div class="text-xs text-brand-400 font-bold uppercase tracking-wider mb-2">Passo 3</div>
+          <h3 class="font-bold text-white mb-2">Salva no Banco</h3>
+          <p class="text-sm text-gray-400">Eventos são persistidos em banco de dados local, sem duplicatas e com histórico completo.</p>
+        </div>
+        <!-- Step 4 -->
+        <div class="reveal relative glass rounded-2xl p-6 text-center hover:-translate-y-1 transition-transform duration-300" style="transition-delay:0.3s">
+          <div class="w-14 h-14 bg-brand-900/80 border border-brand-700/50 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">📱</div>
+          <div class="text-xs text-brand-400 font-bold uppercase tracking-wider mb-2">Passo 4</div>
+          <h3 class="font-bold text-white mb-2">Alerta no Telegram</h3>
+          <p class="text-sm text-gray-400">Você recebe mensagens formatadas e organizadas, sem precisar procurar nada no site.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features" class="py-24 bg-gray-950/50">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16 reveal">
+        <div class="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-3">Funcionalidades</div>
+        <h2 class="text-4xl lg:text-5xl font-black mb-4">O que o bot faz?</h2>
+        <p class="text-gray-400 text-lg max-w-xl mx-auto">Pensado para quem quer aproveitar a cultura sem perder tempo procurando informação.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="reveal glass rounded-2xl p-6 hover:border-brand-800/50 hover:glow-sm transition-all duration-300">
+          <div class="text-3xl mb-4">🧠</div>
+          <h3 class="font-bold text-white text-lg mb-2">Extração com IA</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">O Gemini interpreta PDFs complexos e estrutura as informações: nome, data, local, horário, preço e classificação etária.</p>
+        </div>
+        <div class="reveal glass rounded-2xl p-6 hover:border-brand-800/50 transition-all duration-300" style="transition-delay:0.05s">
+          <div class="text-3xl mb-4">🔔</div>
+          <h3 class="font-bold text-white text-lg mb-2">Alertas Inteligentes</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Notificações diárias com o que acontece hoje, e semanais com a grade da semana — tudo direto no Telegram, sem abrir o site.</p>
+        </div>
+        <div class="reveal glass rounded-2xl p-6 hover:border-brand-800/50 transition-all duration-300" style="transition-delay:0.1s">
+          <div class="text-3xl mb-4">🚫</div>
+          <h3 class="font-bold text-white text-lg mb-2">Zero Spam</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Sistema de deduplicação garante que o mesmo evento nunca é enviado duas vezes. Banco de dados histórico rastreia tudo.</p>
+        </div>
+        <div class="reveal glass rounded-2xl p-6 hover:border-brand-800/50 transition-all duration-300" style="transition-delay:0.15s">
+          <div class="text-3xl mb-4">💾</div>
+          <h3 class="font-bold text-white text-lg mb-2">Cache Inteligente</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">O PDF é baixado localmente e analisado só quando há novidade. Economia total de processamento e de tokens de IA.</p>
+        </div>
+        <div class="reveal glass rounded-2xl p-6 hover:border-brand-800/50 transition-all duration-300" style="transition-delay:0.2s">
+          <div class="text-3xl mb-4">🏷️</div>
+          <h3 class="font-bold text-white text-lg mb-2">Emojis Contextuais</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">👶 infantil, 👴 terceira idade, 🎭 teatro, ⚽ esportes, 🎬 cinema — cada atividade tem seu emoji automático.</p>
+        </div>
+        <div class="reveal glass rounded-2xl p-6 hover:border-brand-800/50 transition-all duration-300" style="transition-delay:0.25s">
+          <div class="text-3xl mb-4">⚙️</div>
+          <h3 class="font-bold text-white text-lg mb-2">100% Automatizado</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Roda via cron do sistema operacional. Nenhuma interação humana necessária após configuração. Funciona 24/7.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALERTAS -->
+  <section id="alertas" class="py-24">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16 reveal">
+        <div class="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-3">Tipos de Notificação</div>
+        <h2 class="text-4xl lg:text-5xl font-black mb-4">3 tipos de alerta</h2>
+        <p class="text-gray-400 text-lg max-w-xl mx-auto">Cada alerta tem um propósito diferente — nenhum dado é processado do Gemini nos disparos do dia a dia.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="reveal glass rounded-2xl p-8 border-brand-800/30 hover:border-brand-700/50 transition-all duration-300 hover:-translate-y-1">
+          <div class="text-4xl mb-4">📥</div>
+          <div class="text-xs text-brand-400 font-bold uppercase tracking-wider mb-2">Sync · Diário</div>
+          <h3 class="text-xl font-bold text-white mb-3">Verificação do PDF</h3>
+          <p class="text-gray-400 text-sm leading-relaxed mb-4">Todo dia verifica se há novo PDF. Se houver, baixa, lê com o Gemini e atualiza o banco de dados. Se não houver, não gasta nada.</p>
+          <div class="text-xs text-gray-600 font-mono bg-gray-900 rounded-lg px-3 py-2">node agenda.js sync</div>
+        </div>
+        <div class="reveal glass rounded-2xl p-8 border-brand-700/30 hover:border-brand-600/50 transition-all duration-300 hover:-translate-y-1 glow-sm" style="transition-delay:0.1s">
+          <div class="text-4xl mb-4">☀️</div>
+          <div class="text-xs text-brand-400 font-bold uppercase tracking-wider mb-2">Daily · Diário</div>
+          <h3 class="text-xl font-bold text-white mb-3">Atividades de Hoje</h3>
+          <p class="text-gray-400 text-sm leading-relaxed mb-4">Toda manhã às 10h você recebe tudo que acontece hoje em todas as unidades do SESC, formatado e organizado.</p>
+          <div class="text-xs text-gray-600 font-mono bg-gray-900 rounded-lg px-3 py-2">node agenda.js daily</div>
+        </div>
+        <div class="reveal glass rounded-2xl p-8 border-brand-800/30 hover:border-brand-700/50 transition-all duration-300 hover:-translate-y-1" style="transition-delay:0.2s">
+          <div class="text-4xl mb-4">🌟</div>
+          <div class="text-xs text-brand-400 font-bold uppercase tracking-wider mb-2">Weekly · Semanal</div>
+          <h3 class="text-xl font-bold text-white mb-3">Programação da Semana</h3>
+          <p class="text-gray-400 text-sm leading-relaxed mb-4">Todo domingo você recebe a grade completa dos próximos 7 dias para planejar seus passeios culturais com antecedência.</p>
+          <div class="text-xs text-gray-600 font-mono bg-gray-900 rounded-lg px-3 py-2">node agenda.js weekly</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMO ACESSAR -->
+  <section id="acesso" class="py-24 bg-gray-950/50">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <div class="reveal mb-16">
+        <div class="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-3">Como Acessar</div>
+        <h2 class="text-4xl lg:text-5xl font-black mb-4">Simples assim</h2>
+        <p class="text-gray-400 text-lg max-w-lg mx-auto">Você não precisa instalar nada. Só abrir o Telegram e entrar no canal.</p>
+      </div>
+
+      <div class="reveal flex flex-col md:flex-row items-center justify-center gap-6 mb-16">
+        <!-- Step 1 -->
+        <div class="glass rounded-2xl p-6 w-full md:w-56 text-center">
+          <div class="w-12 h-12 bg-brand-700 rounded-xl flex items-center justify-center text-xl mx-auto mb-3">1️⃣</div>
+          <h4 class="font-bold text-white mb-1">Abra o Telegram</h4>
+          <p class="text-sm text-gray-500">No celular ou desktop</p>
+        </div>
+
+        <div class="text-brand-600 text-2xl hidden md:block">→</div>
+
+        <!-- Step 2 -->
+        <div class="glass rounded-2xl p-6 w-full md:w-56 text-center glow-sm">
+          <div class="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-xl mx-auto mb-3">2️⃣</div>
+          <h4 class="font-bold text-white mb-1">Entre no Canal</h4>
+          <p class="text-sm text-gray-500">Clique no link abaixo</p>
+        </div>
+
+        <div class="text-brand-600 text-2xl hidden md:block">→</div>
+
+        <!-- Step 3 -->
+        <div class="glass rounded-2xl p-6 w-full md:w-56 text-center">
+          <div class="w-12 h-12 bg-brand-700 rounded-xl flex items-center justify-center text-xl mx-auto mb-3">3️⃣</div>
+          <h4 class="font-bold text-white mb-1">Receba os Alertas</h4>
+          <p class="text-sm text-gray-500">Todo dia às 10h da manhã</p>
+        </div>
+      </div>
+
+      <div class="reveal">
+        <a href="https://t.me/sescalertas" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-3 bg-brand-600 hover:bg-brand-500 text-white font-bold px-8 py-4 rounded-2xl transition-all duration-200 glow text-lg">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.288c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.085 14.08l-2.95-.924c-.641-.203-.654-.641.136-.951l11.527-4.447c.535-.194 1.003.131.764.49z"/></svg>
+          Entrar no SESC Alertas
+        </a>
+        <p class="text-gray-600 text-sm mt-4">t.me/sescalertas · Canal público gratuito</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-gray-900 py-12">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🎭</span>
+        <span class="font-bold text-gray-300">SESC <span class="text-brand-400">Alertas</span></span>
+      </div>
+      <p class="text-sm text-gray-600 text-center">
+        Projeto independente · Não é afiliado ao SESC São Paulo · Feito com ❤️ e IA para quem ama cultura
+      </p>
+      <div class="flex items-center gap-4">
+        <a href="https://t.me/sescalertas" target="_blank" rel="noopener" class="text-gray-500 hover:text-brand-400 transition-colors text-sm">Telegram</a>
+        <span class="text-gray-700">·</span>
+        <a href="https://www.sescsp.org.br/" target="_blank" rel="noopener" class="text-gray-500 hover:text-gray-300 transition-colors text-sm">Site Oficial SESC</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
