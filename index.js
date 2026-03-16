@@ -18,7 +18,7 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 const TELEGRAM_SAFE_CHUNK_LEN = 3600;
-const GEMINI_MODEL = 'gemini-3-flash-preview'; // Modelo Flash (mais rápido)
+const GEMINI_MODEL = 'gemini-2.5-flash'; // Modelo Flash (mais rápido)
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
