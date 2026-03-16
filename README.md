@@ -59,7 +59,7 @@ Dashboard acessível em `http://localhost:3000` para:
 ```bash
 git clone https://github.com/seu-usuario/sesc-bot.git
 cd sesc-bot
-npm install
+pnpm install
 ```
 
 ### Configuração (.env)
@@ -82,13 +82,13 @@ FILTER_CATEGORIES=show,teatro
 
 **Modo Interface Gráfica (Recomendado):**
 ```bash
-npm run gui
+pnpm run gui
 # Acesse http://localhost:3000
 ```
 
 **Modo Terminal:**
 ```bash
-npm start
+pnpm start
 ```
 
 ---
