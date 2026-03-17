@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SESC Alertas - Painel de Controle</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
   <div class="container">
     <header>
@@ -21,14 +23,14 @@
         </span>
       </div>
       <% if (lastExecution) { %>
-      <div class="status-item">
-        <span class="label">Última Execução:</span>
-        <span class="value">
-          <%= new Date(lastExecution.startTime).toLocaleString('pt-BR') %>
-          (<%= lastExecution.success ? '✅ Sucesso' : '❌ Falha' %>)
-        </span>
-      </div>
-      <% } %>
+        <div class="status-item">
+          <span class="label">Última Execução:</span>
+          <span class="value">
+            <%= new Date(lastExecution.startTime).toLocaleString('pt-BR') %>
+              (<%= lastExecution.success ? '✅ Sucesso' : '❌ Falha' %>)
+          </span>
+        </div>
+        <% } %>
     </div>
 
     <div class="tabs">
@@ -43,42 +45,67 @@
       <form id="config-form">
         <div class="form-group">
           <label for="telegramToken">🤖 Telegram Bot Token:</label>
-          <input type="text" id="telegramToken" name="telegramToken" 
-                 value="<%= config.telegramToken %>" required>
+          <input type="text" id="telegramToken" name="telegramToken" value="<%= config.telegramToken %>" required>
         </div>
 
         <div class="form-group">
           <label for="telegramChatId">💬 Telegram Chat ID:</label>
-          <input type="text" id="telegramChatId" name="telegramChatId" 
-                 value="<%= config.telegramChatId %>" required>
+          <input type="text" id="telegramChatId" name="telegramChatId" value="<%= config.telegramChatId %>" required>
         </div>
 
         <div class="form-group">
           <label for="geminiApiKey">🤖 Gemini API Key:</label>
-          <input type="password" id="geminiApiKey" name="geminiApiKey" 
-                 value="<%= config.geminiApiKey %>" required>
+          <input type="password" id="geminiApiKey" name="geminiApiKey" value="<%= config.geminiApiKey %>" required>
           <button type="button" class="btn-small" onclick="togglePassword('geminiApiKey')">👁️ Mostrar</button>
         </div>
 
         <div class="form-group">
           <label for="urlPagina">🔗 URL da Página SESC:</label>
-          <input type="url" id="urlPagina" name="urlPagina" 
-                 value="<%= config.urlPagina %>" required>
+          <input type="url" id="urlPagina" name="urlPagina" value="<%= config.urlPagina %>" required>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label for="maxRounds">🔄 Máximo de Rodadas:</label>
-            <input type="number" id="maxRounds" name="maxRounds" 
-                   value="<%= config.maxRounds %>" min="1" max="20" required>
+            <input type="number" id="maxRounds" name="maxRounds" value="<%= config.maxRounds %>" min="1" max="20"
+              required>
             <small>Número de tentativas de extração com IA</small>
           </div>
 
           <div class="form-group">
             <label for="geminiModel">🧠 Modelo Gemini:</label>
-            <input type="text" id="geminiModel" name="geminiModel" 
-                   value="<%= config.geminiModel %>" required>
+            <input type="text" id="geminiModel" name="geminiModel" value="<%= config.geminiModel %>" required>
             <small>Ex: gemini-3-flash-preview</small>
+          </div>
+        </div>
+
+        <hr style="margin: 20px 0; border-top: 1px solid #e9ecef;">
+        <h3>🟢 WhatsApp (Evolution API)</h3>
+        
+        <div class="form-group">
+          <label for="evolutionApiUrl">🔗 URL da API:</label>
+          <input type="url" id="evolutionApiUrl" name="evolutionApiUrl" 
+                 value="<%= config.evolutionApiUrl %>" placeholder="https://api.sua-evolution.com">
+        </div>
+
+        <div class="form-group">
+          <label for="evolutionApiKey">🔑 API Key:</label>
+          <input type="password" id="evolutionApiKey" name="evolutionApiKey" 
+                 value="<%= config.evolutionApiKey %>">
+          <button type="button" class="btn-small" onclick="togglePassword('evolutionApiKey')">👁️ Mostrar</button>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="evolutionApiInstance">⚙️ Instância:</label>
+            <input type="text" id="evolutionApiInstance" name="evolutionApiInstance" 
+                   value="<%= config.evolutionApiInstance %>" placeholder="nome_da_instancia">
+          </div>
+
+          <div class="form-group">
+            <label for="whatsappNumber">📱 Número Destino:</label>
+            <input type="text" id="whatsappNumber" name="whatsappNumber" 
+                   value="<%= config.whatsappNumber %>" placeholder="5511999999999 ou id_do_grupo">
           </div>
         </div>
 
@@ -89,7 +116,7 @@
     <!-- Tab Execução -->
     <div class="tab-content" id="execution-tab">
       <h2>Seleção de Unidades SESC</h2>
-      
+
       <div class="units-section">
         <div class="units-header">
           <p>Selecione quais unidades SESC você deseja monitorar:</p>
@@ -104,26 +131,26 @@
         </div>
 
         <div id="units-container" class="units-container">
-          <% if (availableUnits && availableUnits.length > 0) { %>
+          <% if (availableUnits && availableUnits.length> 0) { %>
             <div class="units-grid">
-              <% availableUnits.forEach(unit => { %>
+              <% availableUnits.forEach(unit=> { %>
                 <label class="unit-checkbox">
-                  <input type="checkbox" 
-                         name="unit" 
-                         value="<%= unit %>" 
-                         <%= selectedUnits.includes(unit) ? 'checked' : '' %>>
-                  <span><%= unit %></span>
+                  <input type="checkbox" name="unit" value="<%= unit %>" <%=selectedUnits.includes(unit) ? 'checked'
+                    : '' %>>
+                  <span>
+                    <%= unit %>
+                  </span>
                 </label>
-              <% }) %>
+                <% }) %>
             </div>
             <div class="units-actions">
               <button id="select-all-btn" class="btn btn-small">✅ Selecionar Todas</button>
               <button id="deselect-all-btn" class="btn btn-small">❌ Desmarcar Todas</button>
               <button id="save-units-btn" class="btn btn-primary">💾 Salvar Seleção</button>
             </div>
-          <% } else { %>
-            <p class="no-units">Clique em "Extrair Unidades do PDF" para começar.</p>
-          <% } %>
+            <% } else { %>
+              <p class="no-units">Clique em "Extrair Unidades do PDF" para começar.</p>
+              <% } %>
         </div>
       </div>
 
@@ -132,15 +159,16 @@
       <h2>Execução Manual</h2>
       <div class="execution-panel">
         <p>Execute o script de extração de eventos do SESC manualmente.</p>
-        <% if (selectedUnits && selectedUnits.length > 0) { %>
+        <% if (selectedUnits && selectedUnits.length> 0) { %>
           <p class="selected-units-info">
-            <strong>📍 Unidades selecionadas:</strong> <%= selectedUnits.join(', ') %>
+            <strong>📍 Unidades selecionadas:</strong>
+            <%= selectedUnits.join(', ') %>
           </p>
         <% } %>
-        <button id="execute-btn" class="btn btn-success" <%= isRunning ? 'disabled' : '' %>>
-          ▶️ Executar Agora
-        </button>
-        <div id="execution-status" class="execution-status"></div>
+        <button id="execute-btn" class="btn btn-success" <%= isRunning ? ' disabled' : '' %>>
+              ▶️ Executar Agora
+              </button>
+              <div id="execution-status" class="execution-status"></div>
       </div>
 
       <div class="info-box">
@@ -162,20 +190,25 @@
         <button id="clear-logs-btn" class="btn btn-small">🗑️ Limpar Logs</button>
       </div>
       <div class="logs-container" id="logs-container">
-        <% if (logs && logs.length > 0) { %>
-          <% logs.forEach(log => { %>
+        <% if (logs && logs.length> 0) { %>
+          <% logs.forEach(log=> { %>
             <div class="log-entry log-<%= log.type %>">
-              <span class="log-time"><%= new Date(log.time).toLocaleTimeString('pt-BR') %></span>
-              <span class="log-message"><%= log.message %></span>
+              <span class="log-time">
+                <%= new Date(log.time).toLocaleTimeString('pt-BR') %>
+              </span>
+              <span class="log-message">
+                <%= log.message %>
+              </span>
             </div>
-          <% }) %>
-        <% } else { %>
-          <p class="no-logs">Nenhum log disponível. Execute o script para ver os logs.</p>
-        <% } %>
+            <% }) %>
+              <% } else { %>
+                <p class="no-logs">Nenhum log disponível. Execute o script para ver os logs.</p>
+                <% } %>
       </div>
     </div>
   </div>
 
   <script src="/js/main.js"></script>
 </body>
+
 </html>

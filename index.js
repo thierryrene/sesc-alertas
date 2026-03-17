@@ -4,6 +4,7 @@ import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 import database from './database.js';
+import evolution from './evolution.js';
 
 // Load environment variables
 dotenv.config();
@@ -65,9 +66,9 @@ function getEventEmoji(ev) {
   const desc = (ev.description || '').toLowerCase();
   const name = (ev.name || '').toLowerCase();
   const classification = (ev.classification || ev.age || '').toLowerCase();
-  
+
   const combined = `${cat} ${desc} ${name} ${classification}`;
-  
+
   if (combined.includes('idoso') || combined.includes('terceira idade') || combined.includes('60+') || combined.includes('aposentado')) return '👴';
   if (combined.includes('infantil') || combined.includes('criança') || combined.includes('bebê') || classification === 'livre') return '👶';
   if (combined.includes('oficina') || combined.includes('curso') || combined.includes('workshop')) return '🛠️';
@@ -78,7 +79,7 @@ function getEventEmoji(ev) {
   if (combined.includes('cinema') || combined.includes('filme') || combined.includes('exibição')) return '🎬';
   if (combined.includes('show') || combined.includes('música') || combined.includes('concerto')) return '🎤';
   if (combined.includes('literatura') || combined.includes('livro') || combined.includes('leitura') || combined.includes('palestra')) return '📚';
-  
+
   return '🎫'; // Default
 }
 
@@ -235,7 +236,7 @@ function normalizeText(value) {
 // Função para parsear data em formato brasileiro
 function parseEventDate(dateStr) {
   if (!dateStr) return null;
-  
+
   const months = {
     'janeiro': 0, 'jan': 0,
     'fevereiro': 1, 'fev': 1,
@@ -250,7 +251,7 @@ function parseEventDate(dateStr) {
     'novembro': 10, 'nov': 10,
     'dezembro': 11, 'dez': 11
   };
-  
+
   const now = new Date();
   const currentYear = now.getFullYear();
 
@@ -272,7 +273,7 @@ function parseEventDate(dateStr) {
       const month = parseInt(match[2]) - 1;
       return new Date(currentYear, month, day);
     }
-    
+
     // Formato "DD de MÊS"
     match = str.match(/(\d{1,2})\s+de\s+(\w+)/i);
     if (match) {
@@ -284,7 +285,7 @@ function parseEventDate(dateStr) {
         return new Date(now.getFullYear(), month, day);
       }
     }
-    
+
     // Formato "MÊS DD"
     match = str.match(/(\w+)\s+(\d{1,2})/i);
     if (match) {
@@ -296,10 +297,10 @@ function parseEventDate(dateStr) {
         return new Date(now.getFullYear(), month, day);
       }
     }
-    
+
     return null;
   };
-  
+
   // Extrai todas as datas possíveis da string, incluindo intervalos
   const allMatches = [
     ...dateStr.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g), // 15/01/2026
@@ -346,7 +347,7 @@ function parseEventDate(dateStr) {
       }
     }
   }
-  
+
   // Retorna a primeira data encontrada (mais conservador para filtro)
   return dates.length > 0 ? dates[0] : null;
 }
@@ -354,16 +355,16 @@ function parseEventDate(dateStr) {
 // Verifica se o evento está na semana atual (de hoje até próximo sábado)
 function isThisWeek(eventDate) {
   if (!eventDate) return false;
-  
+
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Início do dia atual
-  
+
   // Próximo sábado a partir de hoje
   const daysUntilSaturday = (6 - now.getDay() + 7) % 7; // 0 se já é sábado
   const endOfWeek = new Date(now);
   endOfWeek.setDate(now.getDate() + daysUntilSaturday);
   endOfWeek.setHours(23, 59, 59, 999);
-  
+
   // Evento deve ser de hoje até próximo sábado
   return eventDate >= now && eventDate <= endOfWeek;
 }
@@ -371,20 +372,20 @@ function isThisWeek(eventDate) {
 // Verifica se o evento está no mês atual (após a semana)
 function isThisMonthAfterWeek(eventDate) {
   if (!eventDate) return false;
-  
+
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  
+
   // Próximo sábado
   const daysUntilSaturday = (6 - now.getDay() + 7) % 7;
   const endOfWeek = new Date(now);
   endOfWeek.setDate(now.getDate() + daysUntilSaturday);
   endOfWeek.setHours(23, 59, 59, 999);
-  
+
   // Último dia do mês atual
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   endOfMonth.setHours(23, 59, 59, 999);
-  
+
   // Evento deve estar após a semana E dentro do mês atual
   return eventDate > endOfWeek && eventDate <= endOfMonth;
 }
@@ -438,17 +439,17 @@ function applyAdvancedFilters(events) {
 function filterAndSortEvents(events) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  
+
   // Aplica filtros avançados primeiro
   const filtered = applyAdvancedFilters(events);
   console.log(`🔍 Filtros aplicados: ${events.length} eventos → ${filtered.length} após filtros`);
-  
+
   // Adiciona data parseada aos eventos
   const eventsWithDate = filtered.map(ev => ({
     ...ev,
     parsedDate: parseEventDate(ev.date)
   }));
-  
+
   // Filtra apenas eventos de hoje em diante (exclui passados)
   const passedEvents = [];
   const futureEvents = eventsWithDate.filter(ev => {
@@ -459,22 +460,22 @@ function filterAndSortEvents(events) {
     }
     return isFuture; // >= hoje às 00:00 (inclui hoje)
   });
-  
+
   // Separa em 3 categorias:
   // 1. Esta semana (hoje até próximo sábado)
   // 2. Restante do mês (após sábado até fim do mês)
   // 3. Próximo mês ou sem data (descartados da notificação)
-  
+
   const thisWeek = [];
   const thisMonthAfterWeek = [];
   const nextMonthOrNoDate = [];
-  
+
   for (const ev of futureEvents) {
     if (!ev.parsedDate) {
       nextMonthOrNoDate.push(ev); // Sem data = não envia
       continue;
     }
-    
+
     if (isThisWeek(ev.parsedDate)) {
       thisWeek.push(ev);
     } else if (isThisMonthAfterWeek(ev.parsedDate)) {
@@ -483,7 +484,7 @@ function filterAndSortEvents(events) {
       nextMonthOrNoDate.push(ev); // Próximo mês = não envia
     }
   }
-  
+
   // Ordena cada grupo por data
   const sortByDate = (a, b) => {
     if (!a.parsedDate && !b.parsedDate) return 0;
@@ -491,15 +492,15 @@ function filterAndSortEvents(events) {
     if (!b.parsedDate) return -1;
     return a.parsedDate - b.parsedDate;
   };
-  
+
   thisWeek.sort(sortByDate);
   thisMonthAfterWeek.sort(sortByDate);
-  
+
   // Log de debug para verificar filtro
   const todayStr = now.toLocaleDateString('pt-BR');
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const endOfMonthStr = endOfMonth.toLocaleDateString('pt-BR');
-  
+
   console.log(`\n📊 Filtro de datas (hoje: ${todayStr} | fim do mês: ${endOfMonthStr}):`);
   console.log(`   📥 Total de eventos recebidos: ${events.length}`);
   console.log(`   🔍 Após filtros avançados: ${filtered.length}`);
@@ -507,7 +508,7 @@ function filterAndSortEvents(events) {
   console.log(`   ⭐ Esta semana (hoje→sábado): ${thisWeek.length}`);
   console.log(`   📅 Restante do mês (após sábado): ${thisMonthAfterWeek.length}`);
   console.log(`   🚫 Próximo mês ou sem data (excluídos): ${nextMonthOrNoDate.length}`);
-  
+
   if (passedEvents.length > 0 && passedEvents.length <= 10) {
     console.log(`\n   ⏮️  Eventos passados excluídos:`);
     passedEvents.forEach(ev => {
@@ -519,25 +520,25 @@ function filterAndSortEvents(events) {
       console.log(`      • ${ev.name} - ${ev.date} (${ev.parsed})`);
     });
   }
-  
+
   if (thisWeek.length > 0) {
     const firstDate = thisWeek[0].parsedDate?.toLocaleDateString('pt-BR');
     const lastDate = thisWeek[thisWeek.length - 1].parsedDate?.toLocaleDateString('pt-BR');
     console.log(`\n   ⭐ Período desta semana: ${firstDate} até ${lastDate}`);
   }
-  
+
   if (thisMonthAfterWeek.length > 0) {
     const firstDate = thisMonthAfterWeek[0].parsedDate?.toLocaleDateString('pt-BR');
     const lastDate = thisMonthAfterWeek[thisMonthAfterWeek.length - 1].parsedDate?.toLocaleDateString('pt-BR');
     console.log(`   📅 Período restante do mês: ${firstDate} até ${lastDate}`);
   }
-  
+
   console.log(`\n   📤 Total a ser enviado: ${thisWeek.length + thisMonthAfterWeek.length} eventos\n`);
-  
-  return { 
-    thisWeek, 
-    afterThisWeek: thisMonthAfterWeek, 
-    all: [...thisWeek, ...thisMonthAfterWeek] 
+
+  return {
+    thisWeek,
+    afterThisWeek: thisMonthAfterWeek,
+    all: [...thisWeek, ...thisMonthAfterWeek]
   };
 }
 
@@ -602,15 +603,49 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
 
   // Filtra e ordena eventos (sobre a lista de novos)
   const { thisWeek, afterThisWeek } = filterAndSortEvents(onlyNew);
-  
+
   const today = new Date();
   const formattedToday = today.toLocaleDateString('pt-BR');
 
   // Função auxiliar para renderizar lista de eventos por unidade
+function generateGoogleCalendarUrl(ev) {
+  const name = encodeURIComponent(ev.name || 'Evento SESC');
+  const details = encodeURIComponent(ev.description ? `${ev.description}\n\nVia SESC Alertas` : 'Evento SESC');
+  const location = encodeURIComponent(ev.unit || 'SESC');
+  
+  if (!ev.date) return null;
+
+  const dateParts = ev.date.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!dateParts) return null;
+
+  const [_, d, m, y] = dateParts;
+  let startStr = '';
+  let endStr = '';
+
+  const timeParts = ev.time ? ev.time.match(/(\d{1,2})[h:](\d{2})?/) : null;
+
+  if (timeParts) {
+     const h = timeParts[1].padStart(2, '0');
+     const min = timeParts[2] || '00';
+     startStr = `${y}${m}${d}T${h}${min}00`;
+     const hEnd = String((parseInt(h) + 1) % 24).padStart(2, '0');
+     endStr = `${y}${m}${d}T${hEnd}${min}00`;
+  } else {
+     const startDate = new Date(y, m - 1, d);
+     const endDate = new Date(startDate);
+     endDate.setDate(endDate.getDate() + 1);
+     const startStrYMD = `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}`;
+     const endStrYMD = `${endDate.getFullYear()}${String(endDate.getMonth() + 1).padStart(2, '0')}${String(endDate.getDate()).padStart(2, '0')}`;
+     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${name}&dates=${startStrYMD}/${endStrYMD}&details=${details}&location=${location}`;
+  }
+
+  return (startStr && endStr) ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${name}&dates=${startStr}/${endStr}&details=${details}&location=${location}` : null;
+}
+
   const renderEventsList = (eventsList) => {
     const lines = [];
     const byUnit = new Map();
-    
+
     for (const ev of eventsList) {
       const key = ev.unit;
       if (!byUnit.has(key)) byUnit.set(key, []);
@@ -643,10 +678,15 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
         if (when) lines.push(`  ${when}`);
         if (tags) lines.push(`  ${tags}`);
         if (ev.description) lines.push(`  📝 ${ev.description}`);
+        
+        const calUrl = generateGoogleCalendarUrl(ev);
+        if (calUrl) {
+          lines.push(`  🗓️ <a href="${calUrl}">Adicionar ao Google Agenda</a>`);
+        }
         lines.push('');
       }
     }
-    
+
     return lines;
   };
 
@@ -659,10 +699,10 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
     const daysUntilSaturday = (6 - now.getDay() + 7) % 7;
     const endOfWeek = new Date(now);
     endOfWeek.setDate(now.getDate() + daysUntilSaturday);
-    
+
     const periodStart = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const periodEnd = endOfWeek.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    
+
     thisWeekBlock.push('<b>⭐ DESTAQUES DESTA SEMANA (NOVOS) ⭐</b>');
     thisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
     thisWeekBlock.push('');
@@ -683,12 +723,12 @@ function renderEventsTelegramFromJson(payload, pdfUrl) {
     const daysUntilSaturday = (6 - now.getDay() + 7) % 7;
     const afterSaturday = new Date(now);
     afterSaturday.setDate(now.getDate() + daysUntilSaturday + 1); // Domingo após o sábado
-    
+
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
+
     const periodStart = afterSaturday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const periodEnd = endOfMonth.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    
+
     afterThisWeekBlock.push('<b>📅 RESTANTE DO MÊS (NOVOS)</b>');
     afterThisWeekBlock.push('━━━━━━━━━━━━━━━━━━━━━━━━━');
     afterThisWeekBlock.push('');
@@ -713,6 +753,9 @@ async function sendTelegramLongText({ botInstance, chatId, text }) {
 
   console.log(`📦 Conteúdo preparado: ${text.length} caracteres`);
   console.log(`✉️  Envio em ${chunks.length} mensagem(ns) (limite ~${TELEGRAM_SAFE_CHUNK_LEN} chars)`);
+
+  // Envia também para o WhatsApp via Evolution API
+  await evolution.sendMessage(text);
 
   for (let i = 0; i < chunks.length; i += 1) {
     const part = chunks[i];
@@ -871,7 +914,7 @@ async function analyzeWithGemini(pdfBase64, { extraInstructions = '', selectedUn
       }
     });
 
-    const unitFilter = selectedUnits.length > 0 
+    const unitFilter = selectedUnits.length > 0
       ? `\nAPENAS EXTRAIA EVENTOS DAS SEGUINTES UNIDADES:\n${selectedUnits.map(u => `- ${u}`).join('\n')}`
       : '';
 
@@ -941,9 +984,9 @@ async function analyzeAllWithGemini(pdfUrl, { maxRounds = 8, selectedUnits = [] 
     }, 1000);
 
     try {
-      raw = await analyzeWithGemini(pdfBase64, { 
+      raw = await analyzeWithGemini(pdfBase64, {
         extraInstructions: continuationHint,
-        selectedUnits 
+        selectedUnits
       });
     } catch (err) {
       clearInterval(progressInterval);
@@ -952,11 +995,11 @@ async function analyzeAllWithGemini(pdfUrl, { maxRounds = 8, selectedUnits = [] 
       console.log('⚠️ Encerrando extração e retornando eventos coletados até agora.');
       return { ok: true, payload: aggregated };
     }
-    
+
     clearInterval(progressInterval);
     process.stdout.write('\n'); // Quebra linha
     console.log(`✅ Gemini respondeu em ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-    
+
     const parsed = extractJson(raw);
     if (!parsed || typeof parsed !== 'object') {
       console.log('⚠️ Resposta não veio como JSON interpretável. Encerrando continuação e retornando o que já foi coletado.');
@@ -1028,11 +1071,11 @@ async function main() {
       result = { ok: true, payload: cachedData };
     } else {
       console.log('Analisando novo PDF com Gemini API...');
-      result = await analyzeAllWithGemini(pdfUrl, { 
+      result = await analyzeAllWithGemini(pdfUrl, {
         maxRounds: parseInt(process.env.MAX_ROUNDS || '8'),
-        selectedUnits 
+        selectedUnits
       });
-      
+
       // Salva no banco de dados se houver sucesso
       if (result.ok && result.payload?.events?.length > 0) {
         console.log('💾 Salvando análise do PDF no cache...');
@@ -1043,12 +1086,12 @@ async function main() {
 
     // Filtra e ordena eventos
     const { thisWeek, afterThisWeek, all } = filterAndSortEvents(result.payload.events);
-    
+
     console.log(`🧾 Total de eventos extraídos: ${result.payload.events.length}`);
     console.log(`⭐ Esta semana (hoje→sábado): ${thisWeek.length}`);
     console.log(`📅 Restante do mês: ${afterThisWeek.length}`);
     console.log(`📤 Total a enviar: ${all.length}`);
-    
+
     // Salva eventos no banco de dados
     let newEventsCount = 0;
     for (const event of all) {
@@ -1066,12 +1109,12 @@ async function main() {
       event.isNew = result.isNew;
       if (result.isNew) newEventsCount++;
     }
-    
+
     console.log(`💾 Salvos no banco: ${all.length} eventos (${newEventsCount} novos)`);
-    
+
     stats.eventsFound = all.length;
     stats.eventsNew = newEventsCount;
-    
+
     // Atualiza payload com eventos filtrados
     result.payload.events = all;
 
@@ -1079,28 +1122,28 @@ async function main() {
 
     if (result.ok) {
       const blocks = renderEventsTelegramFromJson(result.payload, pdfUrl);
-      
+
       // Envia bloco 1: Destaques da Semana (Hoje até Sábado)
       if (blocks.hasThisWeek) {
         console.log('📤 Enviando bloco 1: Destaques da Semana (hoje → sábado)...');
-        await sendTelegramLongText({ 
-          botInstance: bot, 
-          chatId: TELEGRAM_CHAT_ID, 
-          text: blocks.thisWeek 
+        await sendTelegramLongText({
+          botInstance: bot,
+          chatId: TELEGRAM_CHAT_ID,
+          text: blocks.thisWeek
         });
         await sleep(1000); // Pausa entre blocos
       }
-      
+
       // Envia bloco 2: Restante do Mês (Após Sábado até fim do mês)
       if (blocks.hasAfterThisWeek) {
         console.log('📤 Enviando bloco 2: Restante do Mês (após sábado → fim do mês)...');
-        await sendTelegramLongText({ 
-          botInstance: bot, 
-          chatId: TELEGRAM_CHAT_ID, 
-          text: blocks.afterThisWeek 
+        await sendTelegramLongText({
+          botInstance: bot,
+          chatId: TELEGRAM_CHAT_ID,
+          text: blocks.afterThisWeek
         });
       }
-      
+
       if (!blocks.hasThisWeek && !blocks.hasAfterThisWeek) {
         console.log('⚠️ Nenhum evento futuro para enviar.');
         await bot.sendMessage(TELEGRAM_CHAT_ID, '⚠️ Não há eventos futuros agendados no momento.');
@@ -1126,7 +1169,7 @@ async function main() {
     stats.status = 'failed';
     stats.errorMessage = error.message;
     database.finishExecution(executionId, stats);
-    
+
     try {
       await bot.sendMessage(TELEGRAM_CHAT_ID, `❌ O script falhou: ${error.message}`);
     } catch (telegramError) {

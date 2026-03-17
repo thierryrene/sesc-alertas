@@ -7,6 +7,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 import database from './database.js';
 import { fileURLToPath } from 'url';
+import evolution from './evolution.js';
 
 dotenv.config();
 
@@ -74,7 +75,7 @@ async function analyzeAllWithGemini(pdfBase64, maxRounds = 12) {
       name: ev.name, unit: ev.unit, date: ev.date
     }));
 
-    const continuationHint = cursor 
+    const continuationHint = cursor
       ? `\nCONTINUAÇÃO: Continue de onde parou (${cursor}). Não repita os seguintes eventos: ${JSON.stringify(already)}`
       : '';
 
@@ -167,7 +168,7 @@ function getEventsInRange(events, startDate, endDate) {
   const currentYear = new Date().getFullYear();
   return events.filter(ev => {
     if (!ev.date) return false;
-    
+
     // Tenta formato DD/MM (ex: 15/01)
     const match = ev.date.match(/(\d{1,2})\s*\/\s*(\d{1,2})/);
     if (!match) return false;
@@ -175,12 +176,12 @@ function getEventsInRange(events, startDate, endDate) {
     const day = parseInt(match[1]);
     const month = parseInt(match[2]) - 1;
     const d = new Date(currentYear, month, day);
-    
+
     // Zera os horários das datas base para comparação correta
-    d.setHours(0,0,0,0);
-    const start = new Date(startDate); start.setHours(0,0,0,0);
-    const end = new Date(endDate); end.setHours(23,59,59,999);
-    
+    d.setHours(0, 0, 0, 0);
+    const start = new Date(startDate); start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate); end.setHours(23, 59, 59, 999);
+
     return d >= start && d <= end;
   });
 }
@@ -190,9 +191,9 @@ function getEventEmoji(ev) {
   const desc = (ev.description || '').toLowerCase();
   const name = (ev.name || '').toLowerCase();
   const classification = (ev.classification || ev.age || '').toLowerCase();
-  
+
   const combined = `${cat} ${desc} ${name} ${classification}`;
-  
+
   if (combined.includes('idoso') || combined.includes('terceira idade') || combined.includes('60+') || combined.includes('aposentado')) return '👴';
   if (combined.includes('infantil') || combined.includes('criança') || combined.includes('bebê') || classification === 'livre') return '👶';
   if (combined.includes('oficina') || combined.includes('curso') || combined.includes('workshop')) return '🛠️';
@@ -203,8 +204,41 @@ function getEventEmoji(ev) {
   if (combined.includes('cinema') || combined.includes('filme') || combined.includes('exibição')) return '🎬';
   if (combined.includes('show') || combined.includes('música') || combined.includes('concerto')) return '🎤';
   if (combined.includes('literatura') || combined.includes('livro') || combined.includes('leitura') || combined.includes('palestra')) return '📚';
-  
   return '🎫'; // Default
+}
+
+function generateGoogleCalendarUrl(ev) {
+  const name = encodeURIComponent(ev.name || 'Evento SESC');
+  const details = encodeURIComponent(ev.description ? `${ev.description}\n\nVia SESC Alertas` : 'Evento SESC');
+  const location = encodeURIComponent(ev.location || ev.unit || 'SESC');
+  
+  if (!ev.date) return null;
+
+  const dateParts = ev.date.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!dateParts) return null;
+
+  const [_, d, m, y] = dateParts;
+  let startStr = '';
+  let endStr = '';
+
+  const timeParts = ev.time ? ev.time.match(/(\d{1,2})[h:](\d{2})?/) : null;
+
+  if (timeParts) {
+     const h = timeParts[1].padStart(2, '0');
+     const min = timeParts[2] || '00';
+     startStr = `${y}${m}${d}T${h}${min}00`;
+     const hEnd = String((parseInt(h) + 1) % 24).padStart(2, '0');
+     endStr = `${y}${m}${d}T${hEnd}${min}00`;
+  } else {
+     const startDate = new Date(y, m - 1, d);
+     const endDate = new Date(startDate);
+     endDate.setDate(endDate.getDate() + 1);
+     const startStrYMD = `${startDate.getFullYear()}${String(startDate.getMonth() + 1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}`;
+     const endStrYMD = `${endDate.getFullYear()}${String(endDate.getMonth() + 1).padStart(2, '0')}${String(endDate.getDate()).padStart(2, '0')}`;
+     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${name}&dates=${startStrYMD}/${endStrYMD}&details=${details}&location=${location}`;
+  }
+
+  return (startStr && endStr) ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${name}&dates=${startStr}/${endStr}&details=${details}&location=${location}` : null;
 }
 
 // Renderizador p/ Telegram
@@ -243,6 +277,10 @@ async function sendTelegramSegments(title, eventsList) {
       if (when) fullMsg += `  ${when}\n`;
       if (tags) fullMsg += `  ${tags}\n`;
       if (ev.description) fullMsg += `  📝 ${ev.description}\n`;
+      const calUrl = generateGoogleCalendarUrl(ev);
+      if (calUrl) {
+        fullMsg += `  🗓️ <a href="${calUrl}">Adicionar ao Google Agenda</a>\n`;
+      }
       fullMsg += '\n';
     }
   }
@@ -251,7 +289,7 @@ async function sendTelegramSegments(title, eventsList) {
   const chunks = [];
   const lines = fullMsg.split('\n');
   let currentChunk = '';
-  
+
   for (const line of lines) {
     if (currentChunk.length + line.length + 1 > 3800) {
       chunks.push(currentChunk);
@@ -266,6 +304,10 @@ async function sendTelegramSegments(title, eventsList) {
     await bot.sendMessage(TELEGRAM_CHAT_ID, chunks[i], { parse_mode: 'HTML' });
     await sleep(600); // Flood delay
   }
+  
+  // Envia também para o WhatsApp via Evolution API
+  await evolution.sendMessage(fullMsg);
+
   console.log(`📌 Alerta enviado:  ${title}`);
 }
 
@@ -277,7 +319,7 @@ async function runSync() {
   console.log('🔄 Iniciando Sincronização Quinzenal do SESC SP');
   const pdfInfo = await findLatestPDF();
   const pdfUrl = pdfInfo.url;
-  
+
   // Verifica se o hash deste PDF já consta na tabela cache (marca "ALL" pois raspa do PDF bruto)
   const stmt = database.db.prepare("SELECT id FROM pdf_cache WHERE pdf_url = ? AND units_hash = 'ALL_UNITS'");
   const existing = stmt.get(pdfUrl);
@@ -290,10 +332,10 @@ async function runSync() {
   console.log(`📄 Novo PDF detectado: ${pdfInfo.filename}. Processando extração total...`);
   // Baixa o arquivo para o disco e retorna convertido em payload Gemini
   const base64 = await downloadOrGetPDF(pdfInfo.url, pdfInfo.filename);
-  
+
   // Como é o arquivo total, 15 rounds devem cobrir as páginas vitais
-  const allEvents = await analyzeAllWithGemini(base64, 15); 
-  
+  const allEvents = await analyzeAllWithGemini(base64, 15);
+
   if (allEvents.length === 0) {
     console.log('❌ Falha ou nenhum evento obtido pela extração.');
     return;
@@ -314,7 +356,7 @@ async function runSync() {
     });
     if (res.isNew) novos++;
   }
-  
+
   // Salva no cache com flag universal para assinar como PDF LIDO
   const insertCache = database.db.prepare("INSERT INTO pdf_cache (pdf_url, units_hash, parsed_data) VALUES (?, 'ALL_UNITS', '{}')");
   insertCache.run(pdfUrl);
@@ -325,14 +367,14 @@ async function runSync() {
 async function runWeekly() {
   console.log('📅 Iniciando disparo da Agenda Semanal...');
   const allEvents = database.getEvents();
-  
+
   const today = new Date();
   const endOfWeek = new Date();
   endOfWeek.setDate(today.getDate() + 7);
-  
+
   const events = getEventsInRange(allEvents, today, endOfWeek);
   const dataRef = `${today.toLocaleDateString('pt-BR')} a ${endOfWeek.toLocaleDateString('pt-BR')}`;
-  
+
   await sendTelegramSegments(`🌟 PROGRAMAÇÃO SESC - PRÓXIMOS 7 DIAS\n(${dataRef})`, events);
 }
 
@@ -340,10 +382,10 @@ async function runDaily() {
   console.log('☀️ Iniciando disparo da Agenda do Dia...');
   const allEvents = database.getEvents();
   const today = new Date();
-  
+
   const events = getEventsInRange(allEvents, today, today);
   const dataRef = today.toLocaleDateString('pt-BR');
-  
+
   await sendTelegramSegments(`🔥 HOJE NO SESC - ATIVIDADES DO DIA\n(${dataRef})`, events);
 }
 
