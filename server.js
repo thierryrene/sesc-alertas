@@ -35,7 +35,7 @@ function getConfig() {
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     urlPagina: process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/',
     maxRounds: process.env.MAX_ROUNDS || '8',
-    geminiModel: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
 
     filterMinPrice: process.env.FILTER_MIN_PRICE || '0',
     filterMaxPrice: process.env.FILTER_MAX_PRICE || '999999',
@@ -212,7 +212,7 @@ app.post('/extract-units', async (req, res) => {
     const { GoogleGenerativeAI, SchemaType } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {

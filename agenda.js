@@ -19,7 +19,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const URL_PAGINA = process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -366,13 +366,20 @@ async function runSync() {
 
 async function runWeekly() {
   console.log('📅 Iniciando disparo da Agenda Semanal...');
-  const allEvents = database.getEvents();
-
+  let allEvents = database.getEvents();
+  
   const today = new Date();
   const endOfWeek = new Date();
   endOfWeek.setDate(today.getDate() + 7);
+  
+  let events = getEventsInRange(allEvents, today, endOfWeek);
 
-  const events = getEventsInRange(allEvents, today, endOfWeek);
+  if (!events || events.length === 0) {
+    console.log('⚠️ Nenhuma programação encontrada para esta janela de tempo. Verificando atualizações no site do SESC...');
+    await runSync();
+    allEvents = database.getEvents();
+    events = getEventsInRange(allEvents, today, endOfWeek);
+  }
   const dataRef = `${today.toLocaleDateString('pt-BR')} a ${endOfWeek.toLocaleDateString('pt-BR')}`;
 
   await sendTelegramSegments(`🌟 PROGRAMAÇÃO SESC - PRÓXIMOS 7 DIAS\n(${dataRef})`, events);
@@ -380,10 +387,17 @@ async function runWeekly() {
 
 async function runDaily() {
   console.log('☀️ Iniciando disparo da Agenda do Dia...');
-  const allEvents = database.getEvents();
+  let allEvents = database.getEvents();
   const today = new Date();
+  
+  let events = getEventsInRange(allEvents, today, today);
 
-  const events = getEventsInRange(allEvents, today, today);
+  if (!events || events.length === 0) {
+    console.log('⚠️ Nenhuma programação encontrada para hoje. Verificando atualizações no site do SESC...');
+    await runSync();
+    allEvents = database.getEvents();
+    events = getEventsInRange(allEvents, today, today);
+  }
   const dataRef = today.toLocaleDateString('pt-BR');
 
   await sendTelegramSegments(`🔥 HOJE NO SESC - ATIVIDADES DO DIA\n(${dataRef})`, events);
