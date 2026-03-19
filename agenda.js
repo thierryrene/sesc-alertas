@@ -318,7 +318,7 @@ async function sendTelegramSegments(title, eventsList) {
 async function runSync() {
   console.log('🔄 Iniciando Sincronização Quinzenal do SESC SP');
 
-  // Verifica se o banco de dados já tem informações do mês vigente
+  // 🚨 REGRA ABSOLUTA: Verifica se já tem informações do mês vigente
   const now = new Date();
   const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
   const currentYear = now.getFullYear();
@@ -329,11 +329,11 @@ async function runSync() {
 
   if (eventCount > 0) {
     console.log(`✅ Base de dados já contém ${eventCount} eventos para o mês vigente (${currentMonth}/${currentYear}).`);
-    // Opcional: você pode decidir se quer continuar ou parar aqui. 
-    // Para seguir a orientação de "verificar", vamos apenas informar, mas a lógica do PDF cache abaixo já cuida de não repetir se for o mesmo arquivo.
-  } else {
-    console.log(`ℹ️ Nenhum evento encontrado para o mês vigente (${currentMonth}/${currentYear}). Procedendo com a sincronização...`);
+    console.log('🛑 Sincronização interrompida para poupar quota da Gemini API.');
+    return;
   }
+
+  console.log(`ℹ️ Nenhum evento encontrado para o mês vigente (${currentMonth}/${currentYear}). Procedendo com a sincronização...`);
 
   const pdfInfo = await findLatestPDF();
   const pdfUrl = pdfInfo.url;

@@ -2,9 +2,15 @@
 
 Este documento serve como guia para agentes de IA e desenvolvedores que atuam no projeto **sesc-alertas**.
 
+## 🚨 REGRA ABSOLUTA (MANDATÓRIA)
+
+**PROIBIDO** iniciar qualquer análise via Gemini API (`index.js` ou `agenda.js sync`) sem antes verificar se o banco de dados (`sesc-bot.db`) já contém eventos para o mês vigente.
+- Esta regra visa proteger a quota da API e evitar custos desnecessários.
+- Se houver dados do mês, o agente deve interromper a análise de IA, a menos que o usuário solicite explicitamente uma "limpeza de cache e re-sincronização".
+
 ## 🤖 Orientações para Agentes
 
-1.  **Preservação do Banco de Dados**: Sempre verifique o estado do banco de dados (`sesc-bot.db`) antes de realizar operações de escrita massiva.
+1.  **Verificação Preventiva**: Sempre execute uma query de contagem de eventos do mês atual antes de sugerir ou realizar um teste de envio que envolva raspagem de PDF.
 2.  **Uso de Tokens Gemini**: A extração via Gemini consome tokens significativos. Utilize o sistema de cache (`pdf_cache` no banco de dados) para evitar re-análise do mesmo PDF.
 3.  **Formatação de Mensagens**: As mensagens para Telegram utilizam HTML básico. Para WhatsApp (via Evolution API), as mensagens são convertidas para Markdown. Mantenha a compatibilidade.
 4.  **Tratamento de Datas**: O formato de data no SESC é inconsistente no PDF. Use os utilitários de normalização em `index.js` e `agenda.js`.

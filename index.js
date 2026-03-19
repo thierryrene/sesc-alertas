@@ -347,6 +347,31 @@ async function main() {
 
   try {
     const selectedUnits = (process.env.SELECTED_UNITS || '').split(',').map(u => u.trim()).filter(Boolean);
+
+    // 🚨 REGRA ABSOLUTA: Verifica se já tem informações do mês vigente
+    const now = new Date();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const currentYear = now.getFullYear();
+    const monthPattern = `%/${currentMonth}/${currentYear}%`;
+
+    const checkEvents = database.db.prepare("SELECT COUNT(*) as count FROM events WHERE date LIKE ?");
+    const eventCount = checkEvents.get(monthPattern).count;
+
+    if (eventCount > 0) {
+      console.log(`✅ Base de dados já contém ${eventCount} eventos para o mês vigente (${currentMonth}/${currentYear}).`);
+      console.log('ℹ️ Para poupar a quota da Gemini API, a nova análise de IA foi ignorada. Use os scripts de Agenda para reenviar se necessário.');
+      
+      // Carrega os eventos existentes para disparar apenas se houver algo futuro
+      const existingEvents = database.getEvents();
+      const { all } = filterAndSortEvents(existingEvents);
+
+      if (all.length > 0) {
+        console.log(`📌 ${all.length} eventos futuros encontrados no banco. Nenhuma análise nova necessária.`);
+        database.finishExecution(executionId, { status: 'skipped', eventsFound: all.length, eventsNew: 0 });
+        return;
+      }
+    }
+
     console.log('🔍 Buscando PDF mais recente...');
     const { url: pdfUrl, text: pdfName } = await findLatestPDF();
     console.log(`📄 PDF: ${pdfName}\n🔗 Link: ${pdfUrl}`);

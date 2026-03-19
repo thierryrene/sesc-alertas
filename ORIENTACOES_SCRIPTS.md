@@ -2,6 +2,12 @@
 
 Este documento descreve os scripts disponíveis no projeto **sesc-alertas**, suas finalidades e como executá-los.
 
+## 🚨 Regra de Segurança (Quota da API)
+
+Antes de rodar `npm start` ou `node agenda.js sync`, o sistema verificará se já existem eventos para o mês atual. **Se houver dados, a análise de IA será ignorada para poupar sua cota do Gemini.**
+
+Para forçar uma nova análise em caso de erro nos dados, você deve limpar o cache do PDF no banco de dados primeiro.
+
 ## 🚀 Scripts Principais (package.json)
 
 ### 1. `npm start`
