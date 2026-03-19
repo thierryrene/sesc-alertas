@@ -1,11 +1,17 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import TelegramBot from 'node-telegram-bot-api';
 import evolution from './evolution.js';
+import telegram from './telegram.js';
 import * as cheerio from 'cheerio';
 
-dotenv.config();
+// Corrigir erro AggregateError no Node 20+ (preferir IPv4)
+import dns from 'node:dns';
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
+dotenv.config({ override: true });
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -17,7 +23,6 @@ if (!GEMINI_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const bot = TELEGRAM_BOT_TOKEN ? new TelegramBot(TELEGRAM_BOT_TOKEN) : null;
 
 async function fetchLinkContent(url) {
   if (!url) return '';
@@ -126,7 +131,7 @@ Conteúdo extraído: ${post.fetchedText || post.text || 'Apenas o título está 
     fullMsg += `  📝 ${summary}\n\n`;
   }
 
-  if (bot && TELEGRAM_CHAT_ID) {
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
     const blocks = fullMsg.split('\n\n');
     let currentChunk = '';
     const chunks = [];
@@ -142,7 +147,14 @@ Conteúdo extraído: ${post.fetchedText || post.text || 'Apenas o título está 
     if (currentChunk) chunks.push(currentChunk);
 
     for (const chunk of chunks) {
-      await bot.sendMessage(TELEGRAM_CHAT_ID, chunk, { parse_mode: 'HTML', disable_web_page_preview: true });
+      try {
+        await telegram.sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, chunk, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        });
+      } catch (err) {
+        console.error('❌ Erro envio Telegram:', err.message);
+      }
       await new Promise(resolve => setTimeout(resolve, 500)); // Flood limit delay
     }
     console.log("✅ Resumo enviado para o Telegram!");

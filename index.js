@@ -1,10 +1,10 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 import database from './database.js';
 import evolution from './evolution.js';
+import telegram from './telegram.js';
 
 // Corrigir erro AggregateError no Node 20+ (preferir IPv4)
 import dns from 'node:dns';
@@ -22,7 +22,6 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const URL_PAGINA = process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 function sleep(ms) {
@@ -248,7 +247,14 @@ async function sendFormattedSegments(title, eventsList) {
   if (currentChunk) chunks.push(currentChunk);
 
   for (const chunk of chunks) {
-    await bot.sendMessage(TELEGRAM_CHAT_ID, chunk, { parse_mode: 'HTML', disable_web_page_preview: true });
+    try {
+      await telegram.sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, chunk, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      });
+    } catch (err) {
+      console.error('❌ Erro no envio Telegram:', err.message);
+    }
     await sleep(600);
   }
   

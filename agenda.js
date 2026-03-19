@@ -3,11 +3,11 @@ import path from 'path';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 import database from './database.js';
 import { fileURLToPath } from 'url';
 import evolution from './evolution.js';
+import telegram from './telegram.js';
 
 // Corrigir erro AggregateError no Node 20+ (preferir IPv4)
 import dns from 'node:dns';
@@ -21,13 +21,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim();
+const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || '').trim();
 const URL_PAGINA = process.env.URL_PAGINA || 'https://www.sescsp.org.br/editorial/emcartaz/';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // Utilitários de texto e delay
@@ -251,7 +250,15 @@ function generateGoogleCalendarUrl(ev) {
 async function sendTelegramSegments(title, eventsList) {
   if (!eventsList || eventsList.length === 0) {
     console.log(`Nenhum evento detectado no banco de dados para a condição [${title}]`);
-    await bot.sendMessage(TELEGRAM_CHAT_ID, `<b>${title}</b>\nNenhum evento agendado neste recorte.`, { parse_mode: 'HTML' });
+    try {
+      await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        chat_id: TELEGRAM_CHAT_ID,
+        text: `<b>${title}</b>\nNenhum evento agendado neste recorte.`,
+        parse_mode: 'HTML'
+      });
+    } catch (e) {
+      console.error('Erro ao enviar vazio:', e.message);
+    }
     return;
   }
 
@@ -291,7 +298,6 @@ async function sendTelegramSegments(title, eventsList) {
     }
   }
 
-  // Telegram suporta blocos de ~4000 caracteres. Cortamos em segurança não quebrando tags HTML (separando por linha)
   const chunks = [];
   const lines = fullMsg.split('\n');
   let currentChunk = '';
@@ -307,13 +313,18 @@ async function sendTelegramSegments(title, eventsList) {
   if (currentChunk) chunks.push(currentChunk);
 
   for (let i = 0; i < chunks.length; i++) {
-    await bot.sendMessage(TELEGRAM_CHAT_ID, chunks[i], { parse_mode: 'HTML' });
-    await sleep(600); // Flood delay
+    try {
+      await telegram.sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, chunks[i], {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      });
+    } catch (err) {
+      console.error(`❌ Erro envio Telegram parte ${i}:`, err.message);
+    }
+    await sleep(600);
   }
   
-  // Envia também para o WhatsApp via Evolution API
   await evolution.sendMessage(fullMsg);
-
   console.log(`📌 Alerta enviado:  ${title}`);
 }
 
