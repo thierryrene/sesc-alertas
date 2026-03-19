@@ -9,6 +9,12 @@ import database from './database.js';
 import { fileURLToPath } from 'url';
 import evolution from './evolution.js';
 
+// Corrigir erro AggregateError no Node 20+ (preferir IPv4)
+import dns from 'node:dns';
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);

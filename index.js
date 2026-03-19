@@ -6,6 +6,12 @@ import dotenv from 'dotenv';
 import database from './database.js';
 import evolution from './evolution.js';
 
+// Corrigir erro AggregateError no Node 20+ (preferir IPv4)
+import dns from 'node:dns';
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 // Load environment variables
 dotenv.config();
 
