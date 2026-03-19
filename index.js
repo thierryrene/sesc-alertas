@@ -13,7 +13,7 @@ if (dns.setDefaultResultOrder) {
 }
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ override: true });
 
 // Configuration
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
