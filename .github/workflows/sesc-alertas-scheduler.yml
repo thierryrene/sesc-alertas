@@ -1,0 +1,45 @@
+name: SESC Alertas - Scheduled Execution
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Runs every hour
+  workflow_dispatch:  # Allows manual triggering from the GitHub Actions UI
+
+jobs:
+  run-alertas:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run SESC Alertas
+        run: node index.js
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          URL_PAGINA: ${{ vars.URL_PAGINA }}
+          MAX_ROUNDS: ${{ vars.MAX_ROUNDS }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          FILTER_MIN_PRICE: ${{ vars.FILTER_MIN_PRICE }}
+          FILTER_MAX_PRICE: ${{ vars.FILTER_MAX_PRICE }}
+          FILTER_CATEGORIES: ${{ vars.FILTER_CATEGORIES }}
+          FILTER_MIN_AGE: ${{ vars.FILTER_MIN_AGE }}
+          FILTER_LOCATIONS: ${{ vars.FILTER_LOCATIONS }}
