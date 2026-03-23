@@ -80,7 +80,8 @@ function generateFingerprint(event) {
 // Salva ou atualiza evento no banco
 function saveEvent(event) {
   const fingerprint = generateFingerprint(event);
-  
+  const existing = db.prepare('SELECT id FROM events WHERE fingerprint = ?').get(fingerprint);
+
   const stmt = db.prepare(`
     INSERT INTO events (
       fingerprint, name, date, time, location, price, 
@@ -91,26 +92,20 @@ function saveEvent(event) {
       times_found = times_found + 1
   `);
 
-  try {
-    stmt.run(
-      fingerprint,
-      event.name || '',
-      event.date || '',
-      event.time || '',
-      event.location || '',
-      event.price || '',
-      event.classification || '',
-      event.category || '',
-      event.description || '',
-      JSON.stringify(event)
-    );
-    return { fingerprint, isNew: true };
-  } catch (error) {
-    if (error.code === 'SQLITE_CONSTRAINT') {
-      return { fingerprint, isNew: false };
-    }
-    throw error;
-  }
+  stmt.run(
+    fingerprint,
+    event.name || '',
+    event.date || '',
+    event.time || '',
+    event.location || '',
+    event.price || '',
+    event.classification || '',
+    event.category || '',
+    event.description || '',
+    JSON.stringify(event)
+  );
+
+  return { fingerprint, isNew: !existing };
 }
 
 // Verifica se evento já existe

@@ -33,11 +33,13 @@ O workflow ideal para garantir que o sistema esteja sempre atualizado é:
 - `npm start`: Alerta rápido (focado em novidades).
 - `npm run gui`: Painel administrativo e configuração de WhatsApp.
 - `node agenda.js sync`: Sincronização completa da base.
+- GitHub Actions: `.github/workflows/scheduler.yml` agenda `daily` e `weekly`, e aceita `workflow_dispatch` para `sync`.
 
 ## 📦 Padrões de Commit
 
 - Use mensagens claras (ex: `feat: adiciona verificação de mês vigente no sync`).
 - Não inclua o arquivo `.env` ou o banco de dados `sesc-bot.db` nos commits, a menos que seja uma estrutura inicial.
+- Ao trabalhar no workflow do GitHub Actions, trate o artifact do `sesc-bot.db` como estado serializado e evite qualquer proposta que introduza concorrência entre jobs.
 
 ---
-*Atualizado em: 19 de Março de 2026*
+*Atualizado em: 23 de Março de 2026*

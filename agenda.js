@@ -246,20 +246,9 @@ function generateGoogleCalendarUrl(ev) {
   return (startStr && endStr) ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${name}&dates=${startStr}/${endStr}&details=${details}&location=${location}` : null;
 }
 
-// Renderizador p/ Telegram
-async function sendTelegramSegments(title, eventsList) {
+function buildEventsMessage(title, eventsList, { includeCalendarLinks = true } = {}) {
   if (!eventsList || eventsList.length === 0) {
-    console.log(`Nenhum evento detectado no banco de dados para a condição [${title}]`);
-    try {
-      await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        chat_id: TELEGRAM_CHAT_ID,
-        text: `<b>${title}</b>\nNenhum evento agendado neste recorte.`,
-        parse_mode: 'HTML'
-      });
-    } catch (e) {
-      console.error('Erro ao enviar vazio:', e.message);
-    }
-    return;
+    return `<b>${title}</b>\nNenhum evento agendado neste recorte.`;
   }
 
   const byUnit = {};
@@ -290,41 +279,75 @@ async function sendTelegramSegments(title, eventsList) {
       if (when) fullMsg += `  ${when}\n`;
       if (tags) fullMsg += `  ${tags}\n`;
       if (ev.description) fullMsg += `  📝 ${ev.description}\n`;
+
       const calUrl = generateGoogleCalendarUrl(ev);
-      if (calUrl) {
+      if (includeCalendarLinks && calUrl) {
         fullMsg += `  🗓️ <a href="${calUrl}">Adicionar ao Google Agenda</a>\n`;
       }
       fullMsg += '\n';
     }
   }
 
+  return fullMsg;
+}
+
+function splitTelegramMessage(fullMsg, maxLength = 3800) {
   const chunks = [];
   const lines = fullMsg.split('\n');
   let currentChunk = '';
 
   for (const line of lines) {
-    if (currentChunk.length + line.length + 1 > 3800) {
+    if (currentChunk.length + line.length + 1 > maxLength) {
       chunks.push(currentChunk);
       currentChunk = line;
     } else {
       currentChunk += (currentChunk ? '\n' : '') + line;
     }
   }
+
   if (currentChunk) chunks.push(currentChunk);
+  return chunks;
+}
+
+// Renderizador p/ Telegram
+async function sendTelegramSegments(title, eventsList, { includeTelegramCalendarLinks = true, includeWhatsAppCalendarLinks = true } = {}) {
+  if (!eventsList || eventsList.length === 0) {
+    console.log(`Nenhum evento detectado no banco de dados para a condição [${title}]`);
+    try {
+      await telegram.sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, `<b>${title}</b>\nNenhum evento agendado neste recorte.`, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      });
+    } catch (e) {
+      console.error('Erro ao enviar vazio:', e.message);
+    }
+    return;
+  }
+
+  const telegramMsg = buildEventsMessage(title, eventsList, {
+    includeCalendarLinks: includeTelegramCalendarLinks
+  });
+  const whatsappMsg = buildEventsMessage(title, eventsList, {
+    includeCalendarLinks: includeWhatsAppCalendarLinks
+  });
+  const chunks = splitTelegramMessage(telegramMsg);
+
+  console.log(`📦 Telegram semanal: ${eventsList.length} eventos em ${chunks.length} parte(s).`);
 
   for (let i = 0; i < chunks.length; i++) {
     try {
+      console.log(`📨 Enviando parte ${i + 1}/${chunks.length} para Telegram (${chunks[i].length} chars).`);
       await telegram.sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, chunks[i], {
         parse_mode: 'HTML',
         disable_web_page_preview: true
       });
     } catch (err) {
-      console.error(`❌ Erro envio Telegram parte ${i}:`, err.message);
+      console.error(`❌ Erro envio Telegram parte ${i + 1}/${chunks.length}:`, err.message);
     }
     await sleep(600);
   }
   
-  await evolution.sendMessage(fullMsg);
+  await evolution.sendMessage(whatsappMsg);
   console.log(`📌 Alerta enviado:  ${title}`);
 }
 
@@ -417,7 +440,10 @@ async function runWeekly() {
   }
   const dataRef = `${today.toLocaleDateString('pt-BR')} a ${endOfWeek.toLocaleDateString('pt-BR')}`;
 
-  await sendTelegramSegments(`🌟 PROGRAMAÇÃO SESC - PRÓXIMOS 7 DIAS\n(${dataRef})`, events);
+  await sendTelegramSegments(`🌟 PROGRAMAÇÃO SESC - PRÓXIMOS 7 DIAS\n(${dataRef})`, events, {
+    includeTelegramCalendarLinks: false,
+    includeWhatsAppCalendarLinks: true
+  });
 }
 
 async function runDaily() {

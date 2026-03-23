@@ -1,54 +1,49 @@
-# 🎭 SESC Alertas - Extrator de Eventos
+# 🎭 SESC Alertas
 
 > **Versão:** 0.7.1
 > **Status:** Em desenvolvimento ativo
 
-Bot automatizado que monitora, extrai e organiza a programação cultural do SESC SP. Utiliza Inteligência Artificial para interpretar PDFs oficiais, armazena histórico em banco de dados e envia notificações inteligentes via Telegram, priorizando eventos da semana atual.
+Bot que monitora a programação cultural do SESC SP, extrai eventos a partir do PDF oficial, persiste em SQLite e envia alertas por Telegram e WhatsApp.
 
 ---
 
-## 📖 Wiki do Projeto: Funcionamento e Recursos
+## 📖 Funcionamento
 
 ### 🔄 Fluxo de Funcionamento
 
-O sistema opera em um ciclo contínuo de monitoramento e notificação:
+O fluxo operacional real do projeto é:
 
-1.  **Scraping & Download**: O bot acessa o portal do SESC SP, localiza o PDF da programação do mês vigente ("Em Cartaz") e realiza o download.
-2.  **Extração via IA (Gemini)**: O PDF é enviado para a API do Google Gemini (modelos Flash), que extrai estruturadamente os eventos (nome, data, local, preço, categoria).
-3.  **Filtragem & Deduplicação**:
-    *   **Deduplicação**: Cada evento gera um "fingerprint" único. Se já existir no banco de dados, é ignorado.
-    *   **Filtros de Usuário**: Aplica regras definidas no `.env` (preço máximo, categorias, idade mínima, unidades específicas).
-    *   **Filtros de Data**: Ignora eventos passados ou de meses seguintes.
-4.  **Persistência**: Eventos válidos e logs de execução são salvos em banco SQLite local (`sesc-bot.db`).
-5.  **Notificação Telegram**: Os eventos são formatados e enviados em dois blocos distintos para melhor experiência do usuário:
-    *   ⭐ **Bloco 1 (Destaques da Semana)**: Eventos de hoje até o próximo sábado.
-    *   📅 **Bloco 2 (Restante do Mês)**: Eventos a partir de domingo até o fim do mês.
+1. Antes de qualquer análise via Gemini, `index.js` e `agenda.js sync` verificam se o banco já tem eventos do mês vigente.
+2. Se já houver eventos do mês, a análise pesada é interrompida para poupar quota da Gemini API.
+3. Se não houver dados do mês, o sistema busca o PDF mais recente no portal do SESC.
+4. O resultado da análise pode ser reutilizado via `pdf_cache`, evitando reprocessamento do mesmo PDF.
+5. Os eventos são persistidos com fingerprint único em `sesc-bot.db`.
+6. Os comandos `daily` e `weekly` consultam o banco primeiro e só tentam sincronizar se a janela solicitada estiver vazia.
 
-### 🛠️ Recursos Principais
+## 🛠️ Recursos
 
-#### 1. 🧠 Extração Inteligente com IA
-Utiliza LLMs (Large Language Models) para compreender layouts complexos de PDFs, extraindo datas em diversos formatos ("15 e 16/01", "Sextas às 20h") e normalizando as informações.
+### Extração com IA
+Usa Gemini para extrair eventos do PDF oficial quando necessário. O projeto evita reanálises desnecessárias combinando verificação prévia do mês vigente com cache por PDF.
 
-#### 2. 🗄️ Banco de Dados (Persistência)
-Sistema integrado com SQLite (`better-sqlite3`) que garante:
-*   **Histórico**: Registro de todos os eventos já processados.
-*   **Integridade**: Evita envio de notificações duplicadas.
-*   **Auditoria**: Log de todas as execuções do agendador.
+### Persistência
+SQLite com `better-sqlite3` mantém:
+- eventos extraídos,
+- histórico de execuções,
+- filtros salvos,
+- cache de PDFs processados.
 
+### Filtros
+Configuráveis via `.env`:
+- `FILTER_MIN_PRICE`
+- `FILTER_MAX_PRICE`
+- `FILTER_CATEGORIES`
+- `FILTER_MIN_AGE`
+- `FILTER_LOCATIONS`
+- `SELECTED_UNITS`
 
-#### 4. 🔍 Filtros Avançados
-Configuráveis via arquivo `.env` para personalizar as notificações:
-*   `FILTER_MAX_PRICE`: Define teto de preço (ex: 30 para eventos até R0).
-*   `FILTER_CATEGORIES`: Filtra tipos (ex: "show,teatro,cinema").
-*   `FILTER_MIN_AGE`: Classificação indicativa (ex: 0 para livre, 18 para adultos).
-*   `FILTER_LOCATIONS`: Restringe a unidades específicas (ex: "Pompeia,Sesc Avenida Paulista").
-
-#### 5. 📊 Interface Web & API
-Dashboard acessível em `http://localhost:3000` para:
-*   Visualizar logs em tempo real.
-*   Gerenciar configurações.
-*   Consultar estatísticas do banco de dados.
-*   Endpoints REST disponíveis para integrações (`/scheduler/*`, `/database/*`).
+### Canais de envio
+- Telegram com HTML básico.
+- WhatsApp via Evolution API com conversão para Markdown.
 
 ---
 
@@ -57,14 +52,14 @@ Dashboard acessível em `http://localhost:3000` para:
 ### Instalação
 
 ```bash
-git clone https://github.com/seu-usuario/sesc-bot.git
-cd sesc-bot
+git clone <repo>
+cd sesc-alertas
 pnpm install
 ```
 
 ### Configuração (.env)
 
-Crie um arquivo `.env` baseado no `.env.example`:
+Crie um arquivo `.env` com as credenciais e filtros desejados:
 
 ```ini
 # Credenciais
@@ -73,34 +68,74 @@ TELEGRAM_CHAT_ID=seu_chat_id
 GEMINI_API_KEY=sua_api_key
 
 
-# Filtros (Opcionais)
+# Filtros (opcionais)
+FILTER_MIN_PRICE=0
 FILTER_MAX_PRICE=40
 FILTER_CATEGORIES=show,teatro
 ```
 
 ### Execução
 
-**Modo Interface Gráfica (Recomendado):**
+**Alerta rápido / novidades**
 ```bash
-pnpm run gui
-# Acesse http://localhost:3000
+npm start
 ```
 
-**Modo Terminal:**
+**Painel administrativo**
 ```bash
-pnpm start
+npm run gui
 ```
+
+**Sincronização completa**
+```bash
+node agenda.js sync
+```
+
+**Alertas programados**
+```bash
+node agenda.js daily
+node agenda.js weekly
+```
+
+## 🤖 GitHub Actions
+
+O agendamento automatizado agora pode ser feito via GitHub Actions usando o workflow `SESC Scheduler`.
+
+- `daily`: roda todo dia às `10:00 UTC` (`07:00` em `America/Sao_Paulo`).
+- `weekly`: roda toda segunda às `11:00 UTC` (`08:00` em `America/Sao_Paulo`).
+- `sync`: fica disponível por disparo manual via `workflow_dispatch`.
+- Neste momento, os jobs do GitHub Actions estão configurados para Telegram e Gemini apenas. O WhatsApp continua fora do workflow.
+
+O workflow restaura o `sesc-bot.db` do artifact mais recente, executa o comando escolhido e publica um novo artifact ao final da execução bem-sucedida.
+
+Secrets esperados no repositório:
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `GEMINI_API_KEY`
+
+GitHub Variables recomendadas:
+- `URL_PAGINA`
+- `MAX_ROUNDS`
+- `GEMINI_MODEL`
+- `FILTER_MIN_PRICE`
+- `FILTER_MAX_PRICE`
+- `FILTER_CATEGORIES`
+- `FILTER_MIN_AGE`
+- `FILTER_LOCATIONS`
+- `SELECTED_UNITS`
+
+Limitação importante: como o banco fica em artifact, o scheduler precisa rodar sem concorrência. Se o painel web continuar em outro ambiente escrevendo em um banco diferente, o estado ficará divergente.
 
 ---
 
 ## 🏗️ Estrutura do Projeto
 
-*   `index.js`: Core da aplicação (Orquestrador).
-*   `database.js`: Camada de acesso a dados (SQLite).
-
-*   `server.js`: Servidor Web (Express) e API.
-*   `views/`: Templates EJS para a interface.
-*   `sesc-bot.db`: Arquivo do banco de dados (gerado automaticamente).
+*   `index.js`: fluxo principal de alerta rápido.
+*   `agenda.js`: CLI de sincronização e alertas agendados.
+*   `database.js`: camada SQLite.
+*   `server.js`: painel web e endpoints auxiliares.
+*   `views/`: interface EJS.
+*   `sesc-bot.db`: banco local gerado automaticamente.
 
 ## 📝 Licença
 ISC

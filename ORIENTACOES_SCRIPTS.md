@@ -35,7 +35,7 @@ Para forçar uma nova análise em caso de erro nos dados, você deve limpar o ca
 
 ## 📅 Scripts de Agendamento (CLI Agenda)
 
-O arquivo `agenda.js` funciona como um utilitário de linha de comando para tarefas específicas que podem ser agendadas no sistema (crontab).
+O arquivo `agenda.js` funciona como um utilitário de linha de comando para tarefas específicas que podem ser agendadas no sistema ou no GitHub Actions.
 
 ### 3. `node agenda.js sync`
 *   **Finalidade:** Sincronização profunda da base de dados.
@@ -48,6 +48,25 @@ O arquivo `agenda.js` funciona como um utilitário de linha de comando para tare
 ### 5. `node agenda.js daily`
 *   **Finalidade:** Relatório Diário ("Hoje no SESC").
 *   **O que faz:** Envia apenas os eventos que acontecem na data atual.
+
+## 🧰 GitHub Actions
+
+O workflow `.github/workflows/scheduler.yml` centraliza os disparos automatizados:
+
+*   **`schedule` diário:** `0 10 * * *` (`07:00` em São Paulo).
+*   **`schedule` semanal:** `0 11 * * 1` (`08:00` em São Paulo, segunda-feira).
+*   **`workflow_dispatch`:** permite rodar manualmente `daily`, `weekly` ou `sync`.
+*   **Canais no Actions:** por enquanto, apenas Telegram. O WhatsApp via Evolution API fica fora do workflow.
+
+### Persistência do banco no Actions
+
+Como o runner do GitHub Actions é efêmero, o `sesc-bot.db` é restaurado do artifact mais recente antes da execução e reenviado ao final quando o job conclui com sucesso.
+
+Regras operacionais:
+*   O workflow deve rodar em série, sem concorrência.
+*   Se não houver artifact anterior, o banco é recriado do zero automaticamente.
+*   Se o arquivo restaurado falhar no `integrity_check`, ele é descartado e um banco novo é criado.
+*   O painel web hospedado fora do GitHub Actions não deve ser tratado como escritor do mesmo estado, senão haverá divergência entre bancos.
 
 ---
 
@@ -71,4 +90,4 @@ Para que os scripts funcionem corretamente, o arquivo `.env` deve estar configur
 O projeto utiliza **SQLite** (`sesc-bot.db`). Os scripts de agenda dependem que os dados tenham sido previamente coletados pelo `index.js` ou pelo comando `sync`.
 
 ---
-*Gerado em: 19 de Março de 2026*
+*Atualizado em: 23 de Março de 2026*

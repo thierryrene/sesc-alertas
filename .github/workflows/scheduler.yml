@@ -1,0 +1,175 @@
+name: SESC Scheduler
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Comando a executar'
+        required: true
+        type: choice
+        options:
+          - daily
+          - weekly
+          - sync
+        default: daily
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: sesc-scheduler
+  cancel-in-progress: false
+
+jobs:
+  run-scheduler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: America/Sao_Paulo
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      URL_PAGINA: ${{ vars.URL_PAGINA }}
+      MAX_ROUNDS: ${{ vars.MAX_ROUNDS }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+      FILTER_MIN_PRICE: ${{ vars.FILTER_MIN_PRICE }}
+      FILTER_MAX_PRICE: ${{ vars.FILTER_MAX_PRICE }}
+      FILTER_CATEGORIES: ${{ vars.FILTER_CATEGORIES }}
+      FILTER_MIN_AGE: ${{ vars.FILTER_MIN_AGE }}
+      FILTER_LOCATIONS: ${{ vars.FILTER_LOCATIONS }}
+      SELECTED_UNITS: ${{ vars.SELECTED_UNITS }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve command
+        id: resolve-command
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            command="${{ github.event.inputs.command }}"
+          elif [[ "${{ github.event.schedule }}" == "0 11 * * 1" ]]; then
+            command="weekly"
+          else
+            command="daily"
+          fi
+
+          echo "command=$command" >> "$GITHUB_OUTPUT"
+          echo "Selected command: $command"
+
+      - name: Create .env
+        shell: bash
+        run: |
+          cat > .env <<EOF
+          TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+          TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+          GEMINI_API_KEY=${GEMINI_API_KEY}
+          URL_PAGINA=${URL_PAGINA:-https://www.sescsp.org.br/editorial/emcartaz/}
+          MAX_ROUNDS=${MAX_ROUNDS:-8}
+          GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+          FILTER_MIN_PRICE=${FILTER_MIN_PRICE:-0}
+          FILTER_MAX_PRICE=${FILTER_MAX_PRICE:-999999}
+          FILTER_CATEGORIES=${FILTER_CATEGORIES}
+          FILTER_MIN_AGE=${FILTER_MIN_AGE:-0}
+          FILTER_LOCATIONS=${FILTER_LOCATIONS}
+          SELECTED_UNITS=${SELECTED_UNITS}
+          EOF
+
+      - name: Restore latest database artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '
+            [.artifacts[]
+             | select(.name == "sesc-bot-db")
+             | select(.expired == false)]
+            | sort_by(.created_at)
+            | last
+            | .id // empty
+          ')"
+
+          if [[ -z "$artifact_id" ]]; then
+            echo "No previous database artifact found. Starting with a clean database."
+            exit 0
+          fi
+
+          echo "Downloading database artifact id ${artifact_id}..."
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > db_artifact.zip
+          unzip -o db_artifact.zip -d restored-db >/dev/null
+
+          if [[ -f restored-db/sesc-bot.db ]]; then
+            mv restored-db/sesc-bot.db sesc-bot.db
+            echo "Database restored successfully."
+          else
+            echo "Artifact downloaded but database file is missing. Starting with a clean database."
+          fi
+
+      - name: Validate restored database
+        shell: bash
+        run: |
+          if [[ -f sesc-bot.db ]]; then
+            python3 - <<'PY'
+            import sqlite3
+            try:
+              conn = sqlite3.connect("sesc-bot.db")
+              result = conn.execute("PRAGMA integrity_check;").fetchone()
+              conn.close()
+              if not result or result[0] != "ok":
+                raise RuntimeError(result[0] if result else "integrity_check_failed")
+            except Exception:
+              raise SystemExit(1)
+            PY
+          else
+            exit 0
+          fi
+        continue-on-error: true
+
+      - name: Drop invalid database
+        shell: bash
+        run: |
+          if [[ -f sesc-bot.db ]]; then
+            python3 - <<'PY'
+            import sqlite3
+            import os
+            try:
+              conn = sqlite3.connect("sesc-bot.db")
+              result = conn.execute("PRAGMA integrity_check;").fetchone()
+              conn.close()
+              ok = bool(result) and result[0] == "ok"
+            except Exception:
+              ok = False
+
+            if not ok:
+              os.remove("sesc-bot.db")
+              print("Invalid restored database removed. A new one will be created.")
+            PY
+          fi
+
+      - name: Run scheduler command
+        shell: bash
+        run: node agenda.js "${{ steps.resolve-command.outputs.command }}"
+
+      - name: Upload database artifact
+        if: success() && hashFiles('sesc-bot.db') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: sesc-bot-db
+          path: sesc-bot.db
+          if-no-files-found: error
+          retention-days: 90

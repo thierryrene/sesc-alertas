@@ -438,7 +438,13 @@ async function main() {
     stats.status = 'failed';
     stats.errorMessage = error.message;
     database.finishExecution(executionId, stats);
-    await bot.sendMessage(TELEGRAM_CHAT_ID, `❌ Erro no Script: ${error.message}`);
+    if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+      try {
+        await telegram.sendMessage(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, `❌ Erro no Script: ${error.message}`);
+      } catch (notifyError) {
+        console.error('❌ Falha ao notificar erro no Telegram:', notifyError.message);
+      }
+    }
   }
 }
 
