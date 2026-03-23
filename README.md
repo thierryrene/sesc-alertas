@@ -107,6 +107,18 @@ O agendamento automatizado agora pode ser feito via GitHub Actions usando o work
 
 O workflow restaura o `sesc-bot.db` do artifact mais recente, executa o comando escolhido e publica um novo artifact ao final da execução bem-sucedida.
 
+### Sincronizar banco processado localmente
+
+Se você preferir processar o PDF mensal na sua máquina local e só usar o GitHub Actions para `daily` e `weekly`, o fluxo fica assim:
+
+1. Rode o processamento localmente e confirme que o `sesc-bot.db` ficou correto.
+2. Faça upload do banco para o GitHub com:
+```bash
+./scripts/upload_scheduler_db.sh sesc-bot.db
+```
+3. No GitHub Actions, execute manualmente o workflow `Promote Scheduler DB`.
+4. O scheduler remoto passará a restaurar esse banco via artifact nas próximas execuções.
+
 Secrets esperados no repositório:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`

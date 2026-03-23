@@ -1,0 +1,50 @@
+name: Promote Scheduler DB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: sesc-db-promote
+  cancel-in-progress: false
+
+jobs:
+  promote-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download DB from release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p promoted-db
+          gh release download scheduler-state \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "sesc-bot.db" \
+            --dir promoted-db
+
+          if [[ ! -f promoted-db/sesc-bot.db ]]; then
+            echo "Release asset sesc-bot.db not found."
+            exit 1
+          fi
+
+      - name: Validate uploaded database
+        shell: bash
+        run: |
+          python3 -c "import sqlite3; conn = sqlite3.connect('promoted-db/sesc-bot.db'); result = conn.execute('PRAGMA integrity_check;').fetchone(); conn.close(); raise SystemExit(0 if result and result[0] == 'ok' else 1)"
+
+      - name: Upload scheduler database artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sesc-bot-db
+          path: promoted-db/sesc-bot.db
+          if-no-files-found: error
+          retention-days: 90

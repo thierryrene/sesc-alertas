@@ -57,6 +57,16 @@ O workflow `.github/workflows/scheduler.yml` centraliza os disparos automatizado
 *   **`schedule` semanal:** `0 11 * * 1` (`08:00` em São Paulo, segunda-feira).
 *   **`workflow_dispatch`:** permite rodar manualmente `daily`, `weekly` ou `sync`.
 
+### Banco processado localmente
+
+Quando o PDF mensal for processado localmente, use:
+
+```bash
+./scripts/upload_scheduler_db.sh sesc-bot.db
+```
+
+Depois disso, execute manualmente o workflow `.github/workflows/promote-db.yml` para transformar o arquivo enviado em artifact-base do scheduler.
+
 ### Persistência do banco no Actions
 
 Como o runner do GitHub Actions é efêmero, o `sesc-bot.db` é restaurado do artifact mais recente antes da execução e reenviado ao final quando o job conclui com sucesso.
