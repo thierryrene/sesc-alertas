@@ -56,7 +56,6 @@ O workflow `.github/workflows/scheduler.yml` centraliza os disparos automatizado
 *   **`schedule` diário:** `0 10 * * *` (`07:00` em São Paulo).
 *   **`schedule` semanal:** `0 11 * * 1` (`08:00` em São Paulo, segunda-feira).
 *   **`workflow_dispatch`:** permite rodar manualmente `daily`, `weekly` ou `sync`.
-*   **Canais no Actions:** por enquanto, apenas Telegram. O WhatsApp via Evolution API fica fora do workflow.
 
 ### Persistência do banco no Actions
 

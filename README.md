@@ -104,7 +104,6 @@ O agendamento automatizado agora pode ser feito via GitHub Actions usando o work
 - `daily`: roda todo dia às `10:00 UTC` (`07:00` em `America/Sao_Paulo`).
 - `weekly`: roda toda segunda às `11:00 UTC` (`08:00` em `America/Sao_Paulo`).
 - `sync`: fica disponível por disparo manual via `workflow_dispatch`.
-- Neste momento, os jobs do GitHub Actions estão configurados para Telegram e Gemini apenas. O WhatsApp continua fora do workflow.
 
 O workflow restaura o `sesc-bot.db` do artifact mais recente, executa o comando escolhido e publica um novo artifact ao final da execução bem-sucedida.
 
@@ -112,6 +111,10 @@ Secrets esperados no repositório:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `GEMINI_API_KEY`
+- `EVOLUTION_API_URL`
+- `EVOLUTION_API_KEY`
+- `EVOLUTION_API_INSTANCE`
+- `WHATSAPP_NUMBER`
 
 GitHub Variables recomendadas:
 - `URL_PAGINA`

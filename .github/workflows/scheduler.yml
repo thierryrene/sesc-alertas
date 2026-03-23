@@ -42,6 +42,10 @@ jobs:
       FILTER_MIN_AGE: ${{ vars.FILTER_MIN_AGE }}
       FILTER_LOCATIONS: ${{ vars.FILTER_LOCATIONS }}
       SELECTED_UNITS: ${{ vars.SELECTED_UNITS }}
+      EVOLUTION_API_URL: ${{ secrets.EVOLUTION_API_URL }}
+      EVOLUTION_API_KEY: ${{ secrets.EVOLUTION_API_KEY }}
+      EVOLUTION_API_INSTANCE: ${{ secrets.EVOLUTION_API_INSTANCE }}
+      WHATSAPP_NUMBER: ${{ secrets.WHATSAPP_NUMBER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,6 +90,10 @@ jobs:
           FILTER_MIN_AGE=${FILTER_MIN_AGE:-0}
           FILTER_LOCATIONS=${FILTER_LOCATIONS}
           SELECTED_UNITS=${SELECTED_UNITS}
+          EVOLUTION_API_URL=${EVOLUTION_API_URL}
+          EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+          EVOLUTION_API_INSTANCE=${EVOLUTION_API_INSTANCE}
+          WHATSAPP_NUMBER=${WHATSAPP_NUMBER}
           EOF
 
       - name: Restore latest database artifact
