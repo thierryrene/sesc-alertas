@@ -132,17 +132,7 @@ jobs:
         shell: bash
         run: |
           if [[ -f sesc-bot.db ]]; then
-            python3 - <<'PY'
-            import sqlite3
-            try:
-              conn = sqlite3.connect("sesc-bot.db")
-              result = conn.execute("PRAGMA integrity_check;").fetchone()
-              conn.close()
-              if not result or result[0] != "ok":
-                raise RuntimeError(result[0] if result else "integrity_check_failed")
-            except Exception:
-              raise SystemExit(1)
-            PY
+            python3 -c "import sqlite3; conn = sqlite3.connect('sesc-bot.db'); result = conn.execute('PRAGMA integrity_check;').fetchone(); conn.close(); raise SystemExit(0 if result and result[0] == 'ok' else 1)"
           else
             exit 0
           fi
@@ -152,21 +142,17 @@ jobs:
         shell: bash
         run: |
           if [[ -f sesc-bot.db ]]; then
-            python3 - <<'PY'
-            import sqlite3
-            import os
-            try:
-              conn = sqlite3.connect("sesc-bot.db")
-              result = conn.execute("PRAGMA integrity_check;").fetchone()
-              conn.close()
-              ok = bool(result) and result[0] == "ok"
-            except Exception:
-              ok = False
-
-            if not ok:
-              os.remove("sesc-bot.db")
-              print("Invalid restored database removed. A new one will be created.")
-            PY
+            python3 -c "import os, sqlite3; ok = False
+try:
+    conn = sqlite3.connect('sesc-bot.db')
+    result = conn.execute('PRAGMA integrity_check;').fetchone()
+    conn.close()
+    ok = bool(result) and result[0] == 'ok'
+except Exception:
+    ok = False
+if not ok:
+    os.remove('sesc-bot.db')
+    print('Invalid restored database removed. A new one will be created.')"
           fi
 
       - name: Run scheduler command
